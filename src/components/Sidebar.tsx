@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
   PlusCircle, 
-  Sparkles, 
   LayoutDashboard, 
   FileText, 
   BarChart3, 
@@ -18,7 +17,6 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenAddModal: () => void;
-  onOpenAiModal: () => void;
   onExportToDrive: () => void;
   onExportExcel?: () => void;
   onExportPdf?: () => void;
@@ -34,7 +32,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   onOpenAddModal,
-  onOpenAiModal,
   onExportToDrive,
   onExportExcel,
   onExportPdf,
@@ -122,15 +119,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <PlusCircle className="w-4 h-4 stroke-[2.5]" />
             <span>ตั้งเบิกงบประมาณใหม่</span>
-          </button>
-
-          {/* AI Advisor Button in Left Menu */}
-          <button
-            onClick={() => { onOpenAiModal(); onCloseMobile(); }}
-            className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 hover:from-purple-600 hover:to-indigo-500 text-white font-semibold rounded-xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 border border-purple-400/30 group"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse group-hover:rotate-12 transition-transform" />
-            <span>AI วิเคราะห์งบประมาณ</span>
           </button>
         </div>
 

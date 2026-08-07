@@ -2,7 +2,6 @@ import express from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
 import { google } from 'googleapis';
 import { INITIAL_DISBURSEMENTS } from './src/data/initialData.ts';
 import { DisbursementItem } from './src/types.ts';
@@ -234,110 +233,7 @@ app.get('/api/stats', (req, res) => {
 });
 
 // ==========================================
-// 2. SERVER-SIDE GEMINI AI BUDGET ADVISOR
-// ==========================================
-app.post('/api/ai/analyze', async (req, res) => {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'กรุณาตั้งค่า GEMINI_API_KEY ใน Secrets เพื่อใช้งาน AI วิเคราะห์งบประมาณ' 
-      });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-    
-    const prompt = `
-คุณคือผู้เชี่ยวชาญด้านระบบบริหารจัดการงบประมาณทหารและการเบิกจ่ายภาครัฐ ของ มณฑลทหารบกที่ ๔๒ (มทบ.42)
-กรุณาวิเคราะห์ข้อมูลการเบิกจ่ายงบประมาณปัจจุบันด้านล่างนี้ และสรุปผลในรูปแบบภาษาไทยอย่างเป็นทางการ กระชับ เข้าใจง่าย
-
-ข้อมูลการเบิกจ่ายทั้งหมด (${disbursementsDatabase.length} รายการ):
-${JSON.stringify(disbursementsDatabase, null, 2)}
-
-โปรดให้วิเคราะห์:
-1. สรุปภาพรวมสถานะการเบิกจ่ายปัจจุบัน (ยอดรวม, อนุมัติแล้ว, ส่งคืนแก้ไข, รอตรวจ)
-2. วิเคราะห์สาเหตุหลักของการ "ส่งคืนเอกสารแก้ไข" และหน่วยงานที่มีอัตราการติดขัดสูงสุด
-3. ข้อเสนอแนะเชิงบริหารสำหรับนายทหารงบประมาณ และฝ่ายอนุมัติ เพื่อเร่งรัดการเบิกจ่ายให้ทันตามงวดงบประมาณ
-`;
-
-    // Models to try in order of preference according to Gemini SDK specs
-    const candidateModels = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.1-pro-preview'];
-    let analysisResultText = '';
-    let lastError: any = null;
-
-    for (const modelName of candidateModels) {
-      let attempts = 0;
-      const maxAttempts = 2;
-      while (attempts < maxAttempts) {
-        try {
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-          });
-          if (response && response.text) {
-            analysisResultText = response.text;
-            break;
-          }
-        } catch (err: any) {
-          lastError = err;
-          console.warn(`Attempt ${attempts + 1} with model ${modelName} failed:`, err.message || err);
-          attempts++;
-          if (attempts < maxAttempts) {
-            await new Promise((resolve) => setTimeout(resolve, 800));
-          }
-        }
-      }
-      if (analysisResultText) break;
-    }
-
-    // Smart Local Fallback Analysis if AI models fail or are temporarily throttled
-    if (!analysisResultText) {
-      const totalCount = disbursementsDatabase.length;
-      const approved = disbursementsDatabase.filter(d => d.status === 'อนุมัติ' || d.status === 'โอนเงินแล้ว');
-      const returned = disbursementsDatabase.filter(d => d.status === 'ส่งคืนเอกสารแก้ไข');
-      const pending = disbursementsDatabase.filter(d => d.status === 'รอตรวจสอบเอกสาร' || d.status === 'ยื่นเอกสาร');
-      const totalAmount = disbursementsDatabase.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-      const approvedAmount = approved.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-
-      // Group returned docs by department
-      const deptReturns: Record<string, number> = {};
-      returned.forEach(d => {
-        deptReturns[d.department] = (deptReturns[d.department] || 0) + 1;
-      });
-      const topReturnedDept = Object.entries(deptReturns).sort((a, b) => b[1] - a[1])[0] || ['ไม่ระบุ', 0];
-
-      analysisResultText = `### 📊 รายงานสรุปผลการวิเคราะห์งบประมาณการเบิกจ่าย (มทบ.42)
-
-**1. สรุปภาพรวมสถานะการเบิกจ่าย**
-- **รายการทั้งหมด:** ${totalCount} รายการ
-- **วงเงินงบประมาณรวม:** ฿${totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-- **อนุมัติเรียบร้อย:** ${approved.length} รายการ (฿${approvedAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })})
-- **ส่งคืนแก้ไข:** ${returned.length} รายการ
-- **รอการตรวจสอบ:** ${pending.length} รายการ
-
-**2. วิเคราะห์ข้อติดขัดและการส่งคืนแก้ไข**
-- **หน่วยงานที่มีเอกสารส่งคืนสูงสุด:** ${topReturnedDept[0]} (${topReturnedDept[1]} รายการ)
-- **สาเหตุหลัก:** เอกสารหลักฐานประกอบการเบิกจ่ายไม่สมบูรณ์ หรือความผิดพลาดทางเทคนิคการคำนวณภาษีหัก ณ ที่จ่าย
-
-**3. ข้อเสนอแนะเชิงบริหาร**
-- เร่งรัดติดตามเอกสารของหน่วยงาน **${topReturnedDept[0]}** เพื่อทำการแก้ไขภายใน 3 วันทำการ
-- ควรจัดอบรมแนวทางจัดทำเอกสารงบประมาณมาตรฐานเพื่อลดอัตราการส่งคืนแก้ไข
-- เพิ่มกระบวนการ Pre-check ก่อนส่งเรื่องให้นายทหารงบประมาณเพื่อความรวดเร็วในการอนุมัติ`;
-    }
-
-    res.json({
-      success: true,
-      analysis: analysisResultText
-    });
-  } catch (error: any) {
-    console.error('Gemini AI error:', error);
-    res.status(500).json({ success: false, error: error.message || 'Failed to analyze with Gemini AI' });
-  }
-});
-
-// ==========================================
-// 3. GOOGLE DRIVE & SHEETS INTEGRATION
+// 2. GOOGLE DRIVE & SHEETS INTEGRATION
 // ==========================================
 
 // Get OAuth URL

@@ -7,7 +7,6 @@ import {
 
 interface HeaderProps {
   onOpenAddModal: () => void;
-  onOpenAiModal?: () => void;
   onExportToDrive?: () => void;
   onRefresh: () => void;
   onOpenMobileMenu?: () => void;

@@ -7,7 +7,6 @@ import { DisbursementTable } from './components/DisbursementTable';
 import { AddRequestModal } from './components/AddRequestModal';
 import { EditRequestModal } from './components/EditRequestModal';
 import { PrintVoucherModal } from './components/PrintVoucherModal';
-import { AiBudgetAdvisor } from './components/AiBudgetAdvisor';
 
 import { DisbursementItem, DisbursementStatus, MonthlySummary, CategorySummary, DepartmentSummary } from './types';
 import { exportToExcel, exportToPdf } from './utils/exportUtils';
@@ -44,12 +43,6 @@ export default function App() {
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [lastSpreadsheetUrl, setLastSpreadsheetUrl] = useState<string | undefined>();
-
-  // AI Advisor
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
 
   // Show Toast Notification
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -359,26 +352,6 @@ export default function App() {
     }
   };
 
-  // Trigger Gemini AI Analysis
-  const handleRunAiAnalysis = async () => {
-    setIsAiModalOpen(true);
-    setIsAiLoading(true);
-    setAiError(null);
-    try {
-      const res = await fetch('/api/ai/analyze', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setAiAnalysis(data.analysis);
-      } else {
-        setAiError(data.error || 'ไม่สามารถวิเคราะห์ข้อมูลได้');
-      }
-    } catch (err) {
-      setAiError('เกิดข้อผิดพลาดในการเชื่อมต่อ AI Server');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   // Unique Month Options for Filter
   const monthOptions = [
     { label: 'มกราคม 2569 (01/2569)', value: '01/2569' },
@@ -397,7 +370,6 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenAddModal={() => setIsAddModalOpen(true)}
-        onOpenAiModal={handleRunAiAnalysis}
         onExportToDrive={handleExportToGoogleSheets}
         onExportExcel={() => exportToExcel(filteredItems)}
         onExportPdf={() => exportToPdf(filteredItems)}
@@ -415,7 +387,6 @@ export default function App() {
         {/* Top Header Bar */}
         <Header
           onOpenAddModal={() => setIsAddModalOpen(true)}
-          onOpenAiModal={handleRunAiAnalysis}
           onExportToDrive={handleExportToGoogleSheets}
           onRefresh={() => {}}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
@@ -498,15 +469,6 @@ export default function App() {
         isOpen={Boolean(printingItem)}
         item={printingItem}
         onClose={() => setPrintingItem(null)}
-      />
-
-      <AiBudgetAdvisor
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-        analysisText={aiAnalysis}
-        isLoading={isAiLoading}
-        onReanalyze={handleRunAiAnalysis}
-        error={aiError}
       />
 
     </div>
