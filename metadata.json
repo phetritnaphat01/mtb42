@@ -1,0 +1,6 @@
+{
+  "name": "ระบบติดตามการเบิกจ่ายงบประมาณ - มทบ.42",
+  "description": "ระบบติดตามการเบิกจ่ายงบประมาณของหน่วยงาน พร้อมกราฟสรุปรายเดือนแบบเรียลไทม์ และรายงานจำแนกตามประเภทรายการ",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

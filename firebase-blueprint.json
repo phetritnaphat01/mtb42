@@ -1,0 +1,24 @@
+{
+  "entities": {
+    "disbursements": {
+      "title": "Disbursement Items",
+      "description": "Budget disbursement requests for MTHB 42",
+      "fields": {
+        "department": { "type": "string", "description": "Unit name" },
+        "requestDate": { "type": "string", "description": "Request date" },
+        "docNumber": { "type": "string", "description": "Voucher number" },
+        "item": { "type": "string", "description": "Item description" },
+        "category": { "type": "string", "description": "Budget category" },
+        "amount": { "type": "number", "description": "Disbursement amount in THB" },
+        "budgetOfficer": { "type": "string", "description": "Budget officer name" },
+        "approver": { "type": "string", "description": "Approver officer name" },
+        "status": { "type": "string", "description": "Disbursement status" },
+        "notes": { "type": "string", "description": "Additional notes" },
+        "transferDate": { "type": "string", "description": "Transfer date if transferred" },
+        "returnDate": { "type": "string", "description": "Return date if returned" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp" }
+      }
+    }
+  }
+}

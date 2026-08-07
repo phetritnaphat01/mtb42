@@ -1,0 +1,119 @@
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  onSnapshot, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDocs,
+  query,
+  orderBy
+} from 'firebase/firestore';
+import { DisbursementItem } from './types';
+import { INITIAL_DISBURSEMENTS } from './data/initialData';
+import firebaseConfig from '../firebase-applet-config.json';
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// Use the designated database ID if provided in config, otherwise default
+export const db = firebaseConfig.firestoreDatabaseId 
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
+
+const DISBURSEMENTS_COLLECTION = 'disbursements';
+
+/**
+ * Subscribe to real-time updates from Firestore
+ */
+export const subscribeToDisbursements = (
+  onData: (items: DisbursementItem[]) => void,
+  onError?: (error: Error) => void
+) => {
+  const colRef = collection(db, DISBURSEMENTS_COLLECTION);
+  const q = query(colRef);
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: DisbursementItem[] = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          department: data.department || '',
+          requestDate: data.requestDate || '',
+          docNumber: data.docNumber || '',
+          item: data.item || '',
+          category: data.category || '',
+          amount: data.amount || 0,
+          budgetOfficer: data.budgetOfficer || '',
+          approver: data.approver || '',
+          status: data.status || 'ยื่นเอกสาร',
+          notes: data.notes || '',
+          returnDate: data.returnDate || '',
+          transferDate: data.transferDate || '',
+        } as DisbursementItem;
+      });
+
+      // If database is completely empty on first run, seed with initial MTHB42 data
+      if (items.length === 0) {
+        seedInitialData();
+      } else {
+        onData(items);
+      }
+    },
+    (err) => {
+      console.error('Firestore subscription error:', err);
+      if (onError) onError(err);
+    }
+  );
+};
+
+/**
+ * Seed initial sample disbursements if database is empty
+ */
+export const seedInitialData = async () => {
+  try {
+    for (const item of INITIAL_DISBURSEMENTS) {
+      const docRef = doc(db, DISBURSEMENTS_COLLECTION, item.id);
+      await setDoc(docRef, {
+        ...item,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.error('Failed to seed initial data to Firestore:', err);
+  }
+};
+
+/**
+ * Save or Add a Disbursement item to Firestore
+ */
+export const saveDisbursementDoc = async (item: DisbursementItem) => {
+  const docRef = doc(db, DISBURSEMENTS_COLLECTION, item.id);
+  await setDoc(docRef, {
+    ...item,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+};
+
+/**
+ * Update partial fields of a Disbursement item
+ */
+export const updateDisbursementDoc = async (id: string, updates: Partial<DisbursementItem>) => {
+  const docRef = doc(db, DISBURSEMENTS_COLLECTION, id);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
+};
+
+/**
+ * Delete a Disbursement item from Firestore
+ */
+export const deleteDisbursementDoc = async (id: string) => {
+  const docRef = doc(db, DISBURSEMENTS_COLLECTION, id);
+  await deleteDoc(docRef);
+};
