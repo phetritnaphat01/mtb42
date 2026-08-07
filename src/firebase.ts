@@ -8,11 +8,12 @@ import {
   updateDoc, 
   deleteDoc, 
   getDocs,
+  getDoc,
   query,
   orderBy
 } from 'firebase/firestore';
 import { DisbursementItem } from './types';
-import { INITIAL_DISBURSEMENTS } from './data/initialData';
+import { INITIAL_DISBURSEMENTS, MTHB42_LOGO_URL } from './data/initialData';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -23,6 +24,58 @@ export const db = firebaseConfig.firestoreDatabaseId
   : getFirestore(app);
 
 const DISBURSEMENTS_COLLECTION = 'disbursements';
+const APP_CONFIG_COLLECTION = 'app_config';
+const LOGO_DOC_ID = 'logo';
+
+/**
+ * Sync and load Logo from Firebase Firestore (mtb42-6bea7)
+ */
+export const subscribeAppLogo = (
+  onLogoChange: (logoUrl: string) => void
+) => {
+  const docRef = doc(db, APP_CONFIG_COLLECTION, LOGO_DOC_ID);
+  
+  return onSnapshot(
+    docRef,
+    async (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.logoUrl) {
+          onLogoChange(data.logoUrl);
+          return;
+        }
+      }
+      // If doc doesn't exist yet, seed default logo to Firebase
+      try {
+        await setDoc(docRef, {
+          logoUrl: MTHB42_LOGO_URL,
+          updatedAt: new Date().toISOString(),
+          projectId: firebaseConfig.projectId
+        }, { merge: true });
+        onLogoChange(MTHB42_LOGO_URL);
+      } catch (err) {
+        console.error('Failed to seed logo to Firestore:', err);
+        onLogoChange(MTHB42_LOGO_URL);
+      }
+    },
+    (err) => {
+      console.error('Firestore logo subscription error:', err);
+      onLogoChange(MTHB42_LOGO_URL);
+    }
+  );
+};
+
+/**
+ * Save custom Logo URL or Base64 to Firebase Firestore
+ */
+export const saveLogoToFirebase = async (logoUrl: string) => {
+  const docRef = doc(db, APP_CONFIG_COLLECTION, LOGO_DOC_ID);
+  await setDoc(docRef, {
+    logoUrl,
+    updatedAt: new Date().toISOString(),
+    projectId: firebaseConfig.projectId
+  }, { merge: true });
+};
 
 /**
  * Subscribe to real-time updates from Firestore

@@ -19,6 +19,15 @@
         "createdAt": { "type": "string", "description": "ISO timestamp" },
         "updatedAt": { "type": "string", "description": "ISO timestamp" }
       }
+    },
+    "app_config": {
+      "title": "Application Configuration",
+      "description": "App settings including custom logo URL",
+      "fields": {
+        "logoUrl": { "type": "string", "description": "Logo image URL or data URL" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp" },
+        "projectId": { "type": "string", "description": "Firebase project ID" }
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { DisbursementItem } from '../types';
 import { X, Printer, ArrowLeft } from 'lucide-react';
-import { MTHB42_LOGO_URL } from '../data/initialData';
+import { MTHB42_LOGO_URL, MTHB42_EMBLEM_DATA_URL } from '../data/initialData';
 
 interface PrintVoucherModalProps {
   isOpen: boolean;
@@ -75,6 +75,9 @@ export const PrintVoucherModal: React.FC<PrintVoucherModalProps> = ({
                 alt="ตรามณฑลทหารบกที่ ๔๒" 
                 className="w-full h-full object-contain"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = MTHB42_EMBLEM_DATA_URL;
+                }}
               />
             </div>
             <h1 className="text-lg sm:text-xl font-bold uppercase tracking-wide">

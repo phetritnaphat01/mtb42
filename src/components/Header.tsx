@@ -4,7 +4,6 @@ import {
   RefreshCw, 
   Menu
 } from 'lucide-react';
-import { MTHB42_LOGO_URL } from '../data/initialData';
 
 interface HeaderProps {
   onOpenAddModal: () => void;

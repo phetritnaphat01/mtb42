@@ -5,5 +5,8 @@ service cloud.firestore {
     match /disbursements/{document} {
       allow read, write: if true;
     }
+    match /app_config/{document} {
+      allow read, write: if true;
+    }
   }
 }

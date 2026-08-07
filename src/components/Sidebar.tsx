@@ -12,7 +12,7 @@ import {
   X,
   HardDrive
 } from 'lucide-react';
-import { MTHB42_LOGO_URL } from '../data/initialData';
+import { MTHB42_LOGO_URL, MTHB42_EMBLEM_DATA_URL } from '../data/initialData';
 
 interface SidebarProps {
   activeTab: string;
@@ -96,6 +96,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 alt="ตรามณฑลทหารบกที่ ๔๒" 
                 className="w-full h-full object-contain filter drop-shadow-sm"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = MTHB42_EMBLEM_DATA_URL;
+                }}
               />
             </div>
             <div>

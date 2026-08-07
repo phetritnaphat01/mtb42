@@ -13,6 +13,7 @@ import { DisbursementItem, DisbursementStatus, MonthlySummary, CategorySummary, 
 import { exportToExcel, exportToPdf } from './utils/exportUtils';
 import { 
   subscribeToDisbursements, 
+  subscribeAppLogo,
   saveDisbursementDoc, 
   updateDisbursementDoc, 
   deleteDisbursementDoc 
@@ -58,10 +59,10 @@ export default function App() {
     }, 4000);
   };
 
-  // 1. Subscribe to Firestore Real-Time Data
+  // 1. Subscribe to Firestore Real-Time Data & Logo Configuration
   useEffect(() => {
     setIsLoading(true);
-    const unsubscribe = subscribeToDisbursements(
+    const unsubDisbursements = subscribeToDisbursements(
       (data) => {
         setRawItems(data);
         setIsLoading(false);
@@ -73,7 +74,15 @@ export default function App() {
       }
     );
 
-    return () => unsubscribe();
+    const unsubLogo = subscribeAppLogo((logoUrl) => {
+      // Sync logo URL if needed across components or state
+      console.log('Firebase mtb42-6bea7 Logo synced:', logoUrl ? 'OK' : 'Empty');
+    });
+
+    return () => {
+      unsubDisbursements();
+      unsubLogo();
+    };
   }, []);
 
   // Compute Stats dynamically from raw Firestore items

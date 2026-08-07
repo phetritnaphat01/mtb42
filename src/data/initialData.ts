@@ -123,7 +123,8 @@ export const INITIAL_DISBURSEMENTS: DisbursementItem[] = [
   }
 ];
 
-export const MTHB42_LOGO_URL = '/mthb42-logo.jpg';
+import { MTHB42_LOGO_BASE64 } from './logoData';
+
 export const MTHB42_EMBLEM_SVG = `
 <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -162,3 +163,9 @@ export const MTHB42_EMBLEM_SVG = `
   </text>
 </svg>
 `;
+
+export const MTHB42_EMBLEM_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(MTHB42_EMBLEM_SVG.trim())}`;
+
+// Embedded Data URL guarantees logo loads without 404 on Vercel or any server
+export const MTHB42_LOGO_URL = MTHB42_LOGO_BASE64 || MTHB42_EMBLEM_DATA_URL;
+
