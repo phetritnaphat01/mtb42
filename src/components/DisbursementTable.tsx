@@ -16,7 +16,10 @@ import {
   AlertCircle,
   FileSpreadsheet,
   FileDown,
-  Loader2
+  Loader2,
+  Lock,
+  ShieldCheck,
+  Unlock
 } from 'lucide-react';
 
 interface DisbursementTableProps {
@@ -36,6 +39,8 @@ interface DisbursementTableProps {
   onPrintVoucher: (item: DisbursementItem) => void;
   onQuickUpdateStatus: (id: string, newStatus: DisbursementStatus) => void;
   monthOptions: { label: string; value: string }[];
+  isAdmin?: boolean;
+  onOpenAdminAuthModal?: () => void;
 }
 
 export const DisbursementTable: React.FC<DisbursementTableProps> = ({
@@ -54,7 +59,9 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
   onDeleteItem,
   onPrintVoucher,
   onQuickUpdateStatus,
-  monthOptions
+  monthOptions,
+  isAdmin = false,
+  onOpenAdminAuthModal
 }) => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -142,6 +149,27 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden my-6">
       
+      {/* Read-Only Mode Banner */}
+      {!isAdmin && (
+        <div className="bg-amber-500/10 border-b border-amber-400/30 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-amber-900">
+          <div className="flex items-center space-x-2">
+            <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>
+              <span className="font-bold">โหมดผู้ใช้ทั่วไป (อ่านอย่างเดียว - Read-Only):</span> สามารถค้นหา ดูข้อมูล พิมพ์ใบฎีกา และส่งออกเอกสารได้ หากต้องการตั้งเบิก แก้ไข หรือลบเอกสาร โปรดปลดล็อกสิทธิ์ Admin
+            </span>
+          </div>
+          {onOpenAdminAuthModal && (
+            <button
+              onClick={onOpenAdminAuthModal}
+              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center gap-1 shrink-0"
+            >
+              <Unlock className="w-3.5 h-3.5" />
+              <span>ปลดล็อก Admin</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Table Controls / Filter Bar */}
       <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/70 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -357,18 +385,24 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
                   <td className="py-3.5 px-3 text-center whitespace-nowrap">
                     {getStatusBadge(item.status)}
                     <div className="mt-1">
-                      <select
-                        value={item.status}
-                        onChange={(e) => onQuickUpdateStatus(item.id, e.target.value as DisbursementStatus)}
-                        className="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-600 hover:border-slate-400 transition"
-                      >
-                        <option value="ยื่นเอกสาร">ยื่นเอกสาร</option>
-                        <option value="รอตรวจสอบเอกสาร">รอตรวจสอบเอกสาร</option>
-                        <option value="อนุมัติ">อนุมัติ</option>
-                        <option value="ส่งคืนเอกสารแก้ไข">ส่งคืนเอกสารแก้ไข</option>
-                        <option value="โอนเงินแล้ว">โอนเงินแล้ว</option>
-                        <option value="ยกเลิก">ยกเลิก</option>
-                      </select>
+                      {isAdmin ? (
+                        <select
+                          value={item.status}
+                          onChange={(e) => onQuickUpdateStatus(item.id, e.target.value as DisbursementStatus)}
+                          className="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-600 hover:border-slate-400 transition"
+                        >
+                          <option value="ยื่นเอกสาร">ยื่นเอกสาร</option>
+                          <option value="รอตรวจสอบเอกสาร">รอตรวจสอบเอกสาร</option>
+                          <option value="อนุมัติ">อนุมัติ</option>
+                          <option value="ส่งคืนเอกสารแก้ไข">ส่งคืนเอกสารแก้ไข</option>
+                          <option value="โอนเงินแล้ว">โอนเงินแล้ว</option>
+                          <option value="ยกเลิก">ยกเลิก</option>
+                        </select>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 block" title="ต้องใช้สิทธิ์ Admin ในการเปลี่ยนสถานะ">
+                          (อ่านอย่างเดียว)
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -392,6 +426,7 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
                   {/* 10. จัดการ */}
                   <td className="py-3.5 px-3 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center space-x-1">
+                      {/* Print Voucher: Available for all users */}
                       <button
                         onClick={() => onPrintVoucher(item)}
                         title="พิมพ์ใบฎีกา / ใบเบิกงบประมาณ"
@@ -399,20 +434,44 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
                       >
                         <Printer className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => onEditItem(item)}
-                        title="แก้ไขข้อมูลคำขอ"
-                        className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded transition"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteItem(item.id)}
-                        title="ลบคำขอ"
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+
+                      {/* Edit Button */}
+                      {isAdmin ? (
+                        <button
+                          onClick={() => onEditItem(item)}
+                          title="แก้ไขข้อมูลคำขอ ( Admin )"
+                          className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded transition"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={onOpenAdminAuthModal}
+                          title="จำกัดสิทธิ์อ่านอย่างเดียว (กดเพื่อใส่รหัสผ่าน Admin)"
+                          className="p-1.5 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded transition"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {/* Delete Button */}
+                      {isAdmin ? (
+                        <button
+                          onClick={() => onDeleteItem(item.id)}
+                          title="ลบคำขอ ( Admin )"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={onOpenAdminAuthModal}
+                          title="จำกัดสิทธิ์อ่านอย่างเดียว (กดเพื่อใส่รหัสผ่าน Admin)"
+                          className="p-1.5 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded transition"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
 

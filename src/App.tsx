@@ -7,15 +7,19 @@ import { DisbursementTable } from './components/DisbursementTable';
 import { AddRequestModal } from './components/AddRequestModal';
 import { EditRequestModal } from './components/EditRequestModal';
 import { PrintVoucherModal } from './components/PrintVoucherModal';
+import { AdminAuthModal } from './components/AdminAuthModal';
+import { AuthModal } from './components/AuthModal';
 
-import { DisbursementItem, DisbursementStatus, MonthlySummary, CategorySummary, DepartmentSummary } from './types';
+import { DisbursementItem, DisbursementStatus, MonthlySummary, CategorySummary, DepartmentSummary, UserProfile } from './types';
 import { exportToExcel, exportToPdf } from './utils/exportUtils';
 import { 
   subscribeToDisbursements, 
   subscribeAppLogo,
   saveDisbursementDoc, 
   updateDisbursementDoc, 
-  deleteDisbursementDoc 
+  deleteDisbursementDoc,
+  subscribeAuthState,
+  logoutUserWithFirebase
 } from './firebase';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -26,6 +30,50 @@ export default function App() {
   const [rawItems, setRawItems] = useState<DisbursementItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // User Auth & Role State
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'register'>('login');
+
+  // Admin Role Lock & Permission State
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+  const [adminPassword, setAdminPassword] = useState(() => {
+    return localStorage.getItem('mthb42_admin_pass') || 'admin123';
+  });
+
+  // Subscribe to Auth State
+  useEffect(() => {
+    const unsubscribe = subscribeAuthState((profile) => {
+      setCurrentUserProfile(profile);
+      if (profile?.role === 'ADMIN') {
+        setIsAdmin(true);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleOpenAuthModal = (tab: 'login' | 'register' = 'login') => {
+    setAuthModalInitialTab(tab);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (profile: UserProfile) => {
+    setCurrentUserProfile(profile);
+    if (profile.role === 'ADMIN') {
+      setIsAdmin(true);
+    }
+    showToast(`เข้าสู่ระบบในนาม ${profile.displayName} (${profile.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'})`, 'success');
+  };
+
+  const handleLogout = async () => {
+    await logoutUserWithFirebase();
+    setCurrentUserProfile(null);
+    setIsAdmin(false);
+    showToast('ออกจากระบบเรียบร้อยแล้ว', 'success');
+  };
+
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,6 +98,40 @@ export default function App() {
     setTimeout(() => {
       setNotification(null);
     }, 4000);
+  };
+
+  // Admin Auth Handlers
+  const handleUnlockAdmin = (inputPassword: string) => {
+    if (inputPassword === adminPassword) {
+      setIsAdmin(true);
+      showToast('ปลดล็อกสิทธิ์ผู้ดูแลระบบ (Admin) เรียบร้อยแล้ว');
+      return true;
+    }
+    return false;
+  };
+
+  const handleLockAdmin = () => {
+    setIsAdmin(false);
+    showToast('สลับเข้าสู่โหมดผู้ใช้ทั่วไป (อ่านอย่างเดียว)');
+  };
+
+  const handleChangeAdminPassword = (oldPass: string, newPass: string) => {
+    if (oldPass === adminPassword) {
+      setAdminPassword(newPass);
+      localStorage.setItem('mthb42_admin_pass', newPass);
+      showToast('เปลี่ยนรหัสผ่าน Admin เรียบร้อยแล้ว');
+      return true;
+    }
+    return false;
+  };
+
+  const handleAttemptAddModal = () => {
+    if (!isAdmin) {
+      showToast('จำกัดสิทธิ์ผู้ใช้ทั่วไป (อ่านอย่างเดียว) กรุณาปลดล็อก Admin ก่อนตั้งเบิกใหม่', 'error');
+      setIsAdminAuthModalOpen(true);
+      return;
+    }
+    setIsAddModalOpen(true);
   };
 
   // 1. Subscribe to Firestore Real-Time Data & Logo Configuration
@@ -369,7 +451,7 @@ export default function App() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onOpenAddModal={handleAttemptAddModal}
         onExportToDrive={handleExportToGoogleSheets}
         onExportExcel={() => exportToExcel(filteredItems)}
         onExportPdf={() => exportToPdf(filteredItems)}
@@ -379,6 +461,11 @@ export default function App() {
         isLoading={isLoading}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
+        isAdmin={isAdmin}
+        onOpenAdminAuthModal={() => setIsAdminAuthModalOpen(true)}
+        currentUserProfile={currentUserProfile}
+        onOpenAuthModal={handleOpenAuthModal}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -386,14 +473,20 @@ export default function App() {
         
         {/* Top Header Bar */}
         <Header
-          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onOpenAddModal={handleAttemptAddModal}
           onExportToDrive={handleExportToGoogleSheets}
           onRefresh={() => {}}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           isGoogleConnected={isGoogleConnected}
           isExporting={isExporting}
           isLoading={isLoading}
+          isAdmin={isAdmin}
+          onOpenAdminAuthModal={() => setIsAdminAuthModalOpen(true)}
+          currentUserProfile={currentUserProfile}
+          onOpenAuthModal={handleOpenAuthModal}
+          onLogout={handleLogout}
         />
+
 
         {/* Main Content Container */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -436,6 +529,8 @@ export default function App() {
               onPrintVoucher={setPrintingItem}
               onQuickUpdateStatus={handleQuickStatusUpdate}
               monthOptions={monthOptions}
+              isAdmin={isAdmin}
+              onOpenAdminAuthModal={() => setIsAdminAuthModalOpen(true)}
             />
           </div>
 
@@ -471,6 +566,24 @@ export default function App() {
         onClose={() => setPrintingItem(null)}
       />
 
+      <AdminAuthModal
+        isOpen={isAdminAuthModalOpen}
+        onClose={() => setIsAdminAuthModalOpen(false)}
+        isAdmin={isAdmin}
+        onUnlock={handleUnlockAdmin}
+        onLock={handleLockAdmin}
+        onChangePassword={handleChangeAdminPassword}
+      />
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        initialTab={authModalInitialTab}
+        adminPassword={adminPassword}
+      />
+
     </div>
   );
 }
+

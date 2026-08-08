@@ -28,6 +28,20 @@
         "updatedAt": { "type": "string", "description": "ISO timestamp" },
         "projectId": { "type": "string", "description": "Firebase project ID" }
       }
+    },
+    "users": {
+      "title": "User Profiles",
+      "description": "Registered user profile records",
+      "fields": {
+        "uid": { "type": "string", "description": "User unique identifier" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Rank and full name" },
+        "department": { "type": "string", "description": "Military unit or department" },
+        "rank": { "type": "string", "description": "Military rank" },
+        "role": { "type": "string", "description": "ADMIN or USER role" },
+        "createdAt": { "type": "string", "description": "Registration ISO timestamp" },
+        "lastLoginAt": { "type": "string", "description": "Last login ISO timestamp" }
+      }
     }
   }
 }

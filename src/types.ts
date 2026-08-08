@@ -63,3 +63,17 @@ export interface GoogleDriveFile {
   webViewLink?: string;
   createdTime?: string;
 }
+
+export type UserRole = 'ADMIN' | 'USER';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  rank?: string;
+  department: string;
+  role: UserRole;
+  createdAt?: string;
+  lastLoginAt?: string;
+}
+

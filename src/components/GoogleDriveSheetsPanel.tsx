@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSpreadsheet, ExternalLink, CheckCircle, HardDrive, LogOut, FileDown } from 'lucide-react';
+import { FileSpreadsheet, ExternalLink, CheckCircle, HardDrive, LogOut, FileDown, FolderLock } from 'lucide-react';
 
 interface GoogleDriveSheetsPanelProps {
   isConnected: boolean;
@@ -23,7 +23,7 @@ export const GoogleDriveSheetsPanel: React.FC<GoogleDriveSheetsPanelProps> = ({
   lastSpreadsheetUrl
 }) => {
   return (
-    <div className="bg-gradient-to-r from-emerald-900/90 via-slate-900 to-teal-950 text-white rounded-xl p-5 my-6 border border-emerald-500/30 shadow-lg">
+    <div className="bg-gradient-to-r from-emerald-900/90 via-slate-900 to-teal-950 text-white rounded-xl p-5 my-6 border border-emerald-500/30 shadow-lg space-y-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         
         {/* Left Status */}
@@ -117,6 +117,15 @@ export const GoogleDriveSheetsPanel: React.FC<GoogleDriveSheetsPanelProps> = ({
         </div>
 
       </div>
+
+      {/* Read-Only Drive Folder Tip */}
+      <div className="pt-3 border-t border-emerald-500/20 text-xs text-emerald-200/90 flex items-center gap-2">
+        <FolderLock className="w-4 h-4 text-amber-300 shrink-0" />
+        <span>
+          <strong className="text-amber-300 font-semibold">การป้องกันไฟล์ปลายทาง:</strong> สามารถตั้งค่าสิทธิ์โฟลเดอร์ใน Google Drive ให้เป็น <span className="underline decoration-amber-400">"ผู้ดู" (Viewer / Read-Only)</span> สำหรับผู้ใช้ทั่วไป เพื่อจำกัดสิทธิ์อ่านอย่างเดียวและป้องกันการแก้ไขเอกสาร
+        </span>
+      </div>
     </div>
   );
 };
+

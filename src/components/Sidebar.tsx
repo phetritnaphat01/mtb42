@@ -9,9 +9,15 @@ import {
   RefreshCw,
   CheckCircle2,
   X,
-  HardDrive
+  ShieldCheck,
+  Lock,
+  User,
+  LogIn,
+  LogOut,
+  UserPlus
 } from 'lucide-react';
 import { MTHB42_LOGO_URL, MTHB42_EMBLEM_DATA_URL } from '../data/initialData';
+import { UserProfile } from '../types';
 
 interface SidebarProps {
   activeTab: string;
@@ -26,6 +32,11 @@ interface SidebarProps {
   isLoading: boolean;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
+  isAdmin?: boolean;
+  onOpenAdminAuthModal?: () => void;
+  currentUserProfile?: UserProfile | null;
+  onOpenAuthModal?: (tab?: 'login' | 'register') => void;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -40,8 +51,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isExporting,
   isLoading,
   isOpenMobile,
-  onCloseMobile
+  onCloseMobile,
+  isAdmin = false,
+  onOpenAdminAuthModal,
+  currentUserProfile,
+  onOpenAuthModal,
+  onLogout
 }) => {
+
   const navItems = [
     { id: 'dashboard', label: 'ภาพรวม & สรุปงบประมาณ', icon: LayoutDashboard },
     { id: 'table', label: 'รายการฎีกาเบิกจ่าย', icon: FileText },
@@ -110,8 +127,110 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons Section */}
+        {/* Role Badge & User Account Section */}
         <div className="p-4 space-y-2.5 border-b border-slate-800/60">
+          
+          {/* User Account Card */}
+          {currentUserProfile ? (
+            <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-700/80 shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`p-1.5 rounded-xl ${currentUserProfile.role === 'ADMIN' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                    {currentUserProfile.role === 'ADMIN' ? <ShieldCheck className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-white truncate">
+                      {currentUserProfile.displayName}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">
+                      {currentUserProfile.department}
+                    </div>
+                  </div>
+                </div>
+
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                  currentUserProfile.role === 'ADMIN' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }`}>
+                  {currentUserProfile.role === 'ADMIN' ? 'ADMIN' : 'USER'}
+                </span>
+              </div>
+
+              <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+                <button
+                  onClick={() => { if (onOpenAuthModal) onOpenAuthModal('login'); onCloseMobile(); }}
+                  className="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
+                >
+                  <LogIn className="w-3 h-3" />
+                  <span>สลับบัญชี</span>
+                </button>
+
+                {onLogout && (
+                  <button
+                    onClick={() => { onLogout(); onCloseMobile(); }}
+                    className="text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1"
+                  >
+                    <LogOut className="w-3 h-3" />
+                    <span>ออกจากระบบ</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 text-center space-y-2">
+              <div className="text-xs font-bold text-slate-200">
+                ยังไม่ได้เข้าสู่ระบบ
+              </div>
+              <p className="text-[10px] text-slate-400 leading-tight">
+                เข้าสู่ระบบหรือสมัครสมาชิกเพื่อสิทธิ์การใช้งานที่สมบูรณ์
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                <button
+                  onClick={() => { if (onOpenAuthModal) onOpenAuthModal('login'); onCloseMobile(); }}
+                  className="py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>เข้าสู่ระบบ</span>
+                </button>
+                <button
+                  onClick={() => { if (onOpenAuthModal) onOpenAuthModal('register'); onCloseMobile(); }}
+                  className="py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>สมัครสมาชิก</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Admin / User Role Switch Box */}
+          {onOpenAdminAuthModal && (
+            <button
+              onClick={() => { onOpenAdminAuthModal(); onCloseMobile(); }}
+              className={`w-full p-2.5 rounded-xl border text-left transition flex items-center justify-between ${
+                isAdmin 
+                  ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-200 hover:bg-emerald-900/50' 
+                  : 'bg-amber-950/50 border-amber-500/40 text-amber-200 hover:bg-amber-900/50'
+              }`}
+            >
+              <div className="flex items-center space-x-2.5">
+                <div className={`p-1.5 rounded-lg ${isAdmin ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                  {isAdmin ? <ShieldCheck className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                </div>
+                <div>
+                  <div className="text-xs font-bold">
+                    {isAdmin ? 'สิทธิ์: ผู้ดูแลระบบ (Admin)' : 'สิทธิ์: อ่านอย่างเดียว (User)'}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {isAdmin ? 'สามารถแก้ไขเอกสารได้' : 'จำกัดสิทธิ์เฉพาะการดูข้อมูล'}
+                  </div>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold underline text-amber-300">
+                {isAdmin ? 'ล็อก' : 'ปลดล็อก'}
+              </span>
+            </button>
+          )}
+
           {/* Add New Request Button */}
           <button
             onClick={() => { onOpenAddModal(); onCloseMobile(); }}
@@ -121,6 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>ตั้งเบิกงบประมาณใหม่</span>
           </button>
         </div>
+
 
         {/* Navigation Menu */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
