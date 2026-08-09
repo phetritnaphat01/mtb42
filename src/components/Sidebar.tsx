@@ -17,7 +17,12 @@ import {
   UserPlus,
   Settings,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Image as ImageIcon,
+  Building2,
+  Users,
+  Key,
+  Database
 } from 'lucide-react';
 import { MTHB42_LOGO_URL, MTHB42_EMBLEM_DATA_URL } from '../data/initialData';
 import { UserProfile } from '../types';
@@ -25,6 +30,8 @@ import { UserProfile } from '../types';
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  activeSystemSubTab?: string;
+  onSelectSystemSubTab?: (subTab: string) => void;
   onOpenAddModal: () => void;
   onExportToDrive: () => void;
   onExportExcel?: () => void;
@@ -45,6 +52,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
+  activeSystemSubTab = 'logo',
+  onSelectSystemSubTab,
   onOpenAddModal,
   onExportToDrive,
   onExportExcel,
@@ -63,6 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
 
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isSystemExpanded, setIsSystemExpanded] = useState(true);
 
   const navItems = [
     { id: 'dashboard', label: 'ภาพรวม & สรุปงบประมาณ', icon: LayoutDashboard },
@@ -70,6 +80,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'charts', label: 'กราฟจำแนกงบประมาณ', icon: BarChart3 },
     { id: 'system', label: 'จัดการระบบ', icon: Settings },
     { id: 'permissions', label: 'จัดการสิทธิ์', icon: ShieldCheck },
+  ];
+
+  const systemSubItems = [
+    { id: 'logo', label: 'ตราประทับ / โลโก้ระบบ', icon: ImageIcon },
+    { id: 'units', label: 'หน่วยงาน & รายการงบ', icon: Building2 },
+    { id: 'officers', label: 'เจ้าหน้าที่ & นายทหาร', icon: Users },
+    { id: 'security', label: 'รหัสผ่าน & ความปลอดภัย', icon: Key },
+    { id: 'database', label: 'สถานะระบบ & ฐานข้อมูล', icon: Database },
   ];
 
   const handleNavClick = (id: string) => {

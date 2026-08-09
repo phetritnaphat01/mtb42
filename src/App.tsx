@@ -30,6 +30,7 @@ import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [systemSubTab, setSystemSubTab] = useState<string>('logo');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [rawItems, setRawItems] = useState<DisbursementItem[]>([]);
@@ -593,6 +594,8 @@ export default function App() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        activeSystemSubTab={systemSubTab}
+        onSelectSystemSubTab={setSystemSubTab}
         onOpenAddModal={handleAttemptAddModal}
         onExportToDrive={handleExportToGoogleSheets}
         onExportExcel={() => exportToExcel(filteredItems)}
@@ -661,6 +664,8 @@ export default function App() {
               usersCount={allUsers.length}
               idleMinutesSetting={idleMinutesSetting}
               onUpdateIdleMinutes={handleUpdateIdleMinutes}
+              activeSubTab={systemSubTab}
+              onSelectSubTab={setSystemSubTab}
             />
           ) : activeTab === 'permissions' ? (
             <PermissionsManagement 

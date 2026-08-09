@@ -40,6 +40,8 @@ interface SystemManagementProps {
   usersCount: number;
   idleMinutesSetting?: number;
   onUpdateIdleMinutes?: (minutes: number) => void;
+  activeSubTab?: string;
+  onSelectSubTab?: (subTab: string) => void;
 }
 
 export const SystemManagement: React.FC<SystemManagementProps> = ({
@@ -51,8 +53,26 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
   disbursementsCount,
   usersCount,
   idleMinutesSetting = 30,
-  onUpdateIdleMinutes
+  onUpdateIdleMinutes,
+  activeSubTab = 'logo',
+  onSelectSubTab
 }) => {
+  // Sub Tab Navigation State
+  const [subTab, setSubTabState] = useState<string>(activeSubTab || 'logo');
+
+  useEffect(() => {
+    if (activeSubTab) {
+      setSubTabState(activeSubTab);
+    }
+  }, [activeSubTab]);
+
+  const setSubTab = (tab: string) => {
+    setSubTabState(tab);
+    if (onSelectSubTab) {
+      onSelectSubTab(tab);
+    }
+  };
+
   // Logo State
   const [logoInputUrl, setLogoInputUrl] = useState('');
   const [isSavingLogo, setIsSavingLogo] = useState(false);
@@ -420,8 +440,89 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
         </div>
       )}
 
+      {/* Sub-menu Navigation Bar for System Management */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setSubTab('logo')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            subTab === 'logo'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+          }`}
+        >
+          <ImageIcon className="w-4 h-4" />
+          <span>ตราประทับ / โลโก้ระบบ</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('units')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            subTab === 'units'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          <span>หน่วยงาน & รายการงบ</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('officers')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            subTab === 'officers'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>เจ้าหน้าที่ & นายทหาร</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('security')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            subTab === 'security'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+          }`}
+        >
+          <Key className="w-4 h-4" />
+          <span>รหัสผ่าน & ความปลอดภัย</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('database')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            subTab === 'database'
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          <span>สถานะระบบ & ฐานข้อมูล</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('all')}
+          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 sm:ml-auto ${
+            subTab === 'all'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/80'
+          }`}
+        >
+          <Settings className="w-3.5 h-3.5" />
+          <span>แสดงทั้งหมด</span>
+        </button>
+      </div>
+
       {/* Main Settings Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={subTab === 'all' ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "space-y-6"}>
 
         {/* 1. Logo Management */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
