@@ -38,7 +38,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialTab);
   
   // Login State
-  const [loginEmail, setLoginEmail] = useState('');
+  const [rememberUsername, setRememberUsername] = useState<boolean>(() => {
+    return localStorage.getItem('mthb42_remember_flag') === 'true';
+  });
+  const [loginEmail, setLoginEmail] = useState<string>(() => {
+    return localStorage.getItem('mthb42_remembered_username') || '';
+  });
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
@@ -77,6 +82,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setIsLoading(true);
     try {
+      if (rememberUsername) {
+        localStorage.setItem('mthb42_remembered_username', loginEmail.trim());
+        localStorage.setItem('mthb42_remember_flag', 'true');
+      } else {
+        localStorage.removeItem('mthb42_remembered_username');
+        localStorage.setItem('mthb42_remember_flag', 'false');
+      }
+
       const profile = await loginUserWithFirebase(loginEmail, loginPassword);
       setSuccessMessage(`เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ ${profile.displayName}`);
       setTimeout(() => {
@@ -266,18 +279,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  อีเมลผู้ใช้งาน (Email)
+                  ชื่อผู้ใช้ (Username) หรือ อีเมล
                 </label>
                 <div className="relative">
                   <input
-                    type="email"
+                    type="text"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="เช่น user.mthb42@mil.th หรือ email@example.com"
+                    placeholder="เช่น officer1, somchai หรือ user.mthb42@mil.th"
                     className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white"
                     required
                   />
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 </div>
               </div>
 
@@ -303,6 +316,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+              </div>
+
+              {/* Remember Username / Email Checkbox */}
+              <div className="flex items-center justify-between pt-0.5 pb-1">
+                <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberUsername}
+                    onChange={(e) => setRememberUsername(e.target.checked)}
+                    className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer accent-amber-500"
+                  />
+                  <span>จำ ชื่อผู้ใช้ (Username) หรือ อีเมล</span>
+                </label>
               </div>
 
               <button
@@ -454,16 +480,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {/* Email */}
+              {/* Email or Username */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  อีเมล (Email) *
+                  ชื่อผู้ใช้ (Username) หรือ อีเมล *
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="เช่น soldier@mil.th หรือ email@example.com"
+                  placeholder="เช่น officer1, somchai หรือ user@mthb42.go.th"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white"
                   required
                 />

@@ -6,13 +6,28 @@ export type DisbursementStatus =
   | 'โอนเงินแล้ว'
   | 'ยกเลิก';
 
-export type BudgetCategory = 
-  | 'งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)'
-  | 'งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)'
-  | 'งบสาธารณูปโภค'
-  | 'งบลงทุน (ค่าครุภัณฑ์/ที่ดิน)'
-  | 'งบอุดหนุน/โครงการพิเศษ'
-  | 'งบรายจ่ายอื่น';
+export const DEFAULT_BUDGET_CATEGORIES: string[] = [
+  'งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)',
+  'งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)',
+  'งบสาธารณูปโภค',
+  'งบลงทุน (ค่าครุภัณฑ์/ที่ดิน)',
+  'งบอุดหนุน/โครงการพิเศษ',
+  'งบรายจ่ายอื่น'
+];
+
+export const DEFAULT_BUDGET_OFFICERS: string[] = [
+  'หัวหน้างบประมาณ',
+  'เสมียนงบประมาณ 1-ตรวจสอบ',
+  'พ.ท.หญิง พจวรรณ จิตรตรง - หัวหน้างบประมาณผู้อนุมัติ'
+];
+
+export const DEFAULT_APPROVERS: string[] = [
+  'นายทหารเบิกจ่าย 1',
+  'นายทหารเบิกจ่าย 2',
+  'พ.ท.ภูริทัต ภักดีชน - ฝกง.มทบ.42 -ผู้อนุมัติ'
+];
+
+export type BudgetCategory = string;
 
 export interface DisbursementItem {
   id: string; // เลขที่คำขอ e.g. TH001
@@ -73,7 +88,47 @@ export interface UserProfile {
   rank?: string;
   department: string;
   role: UserRole;
+  passSecret?: string;
   createdAt?: string;
   lastLoginAt?: string;
 }
+
+export interface FeatureFlags {
+  viewDashboardUser: boolean;
+  viewDashboardAdmin: boolean;
+  createDisbursementUser: boolean;
+  createDisbursementAdmin: boolean;
+  editDisbursementUser: boolean;
+  editDisbursementAdmin: boolean;
+  deleteDisbursementUser: boolean;
+  deleteDisbursementAdmin: boolean;
+  printVoucherUser: boolean;
+  printVoucherAdmin: boolean;
+  exportDataUser: boolean;
+  exportDataAdmin: boolean;
+  systemSettingsUser: boolean;
+  systemSettingsAdmin: boolean;
+  roleManagementUser: boolean;
+  roleManagementAdmin: boolean;
+}
+
+export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
+  viewDashboardUser: true,
+  viewDashboardAdmin: true,
+  createDisbursementUser: true,
+  createDisbursementAdmin: true,
+  editDisbursementUser: false,
+  editDisbursementAdmin: true,
+  deleteDisbursementUser: false,
+  deleteDisbursementAdmin: true,
+  printVoucherUser: true,
+  printVoucherAdmin: true,
+  exportDataUser: true,
+  exportDataAdmin: true,
+  systemSettingsUser: false,
+  systemSettingsAdmin: true,
+  roleManagementUser: false,
+  roleManagementAdmin: true,
+};
+
 

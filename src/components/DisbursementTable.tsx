@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DisbursementItem, DisbursementStatus } from '../types';
+import { DisbursementItem, DisbursementStatus, FeatureFlags } from '../types';
 import { exportToExcel, exportToPdf } from '../utils/exportUtils';
 import { 
   Search, 
@@ -19,7 +19,12 @@ import {
   Loader2,
   Lock,
   ShieldCheck,
-  Unlock
+  Unlock,
+  Grid,
+  Minimize2,
+  Maximize2,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 
 interface DisbursementTableProps {
@@ -41,6 +46,9 @@ interface DisbursementTableProps {
   monthOptions: { label: string; value: string }[];
   isAdmin?: boolean;
   onOpenAdminAuthModal?: () => void;
+  categoryList?: string[];
+  departmentList?: string[];
+  featureFlags?: FeatureFlags;
 }
 
 export const DisbursementTable: React.FC<DisbursementTableProps> = ({
@@ -61,10 +69,113 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
   onQuickUpdateStatus,
   monthOptions,
   isAdmin = false,
-  onOpenAdminAuthModal
+  onOpenAdminAuthModal,
+  categoryList = [],
+  departmentList = [],
+  featureFlags
 }) => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  // Compute permissions based on user role and Admin feature flags
+  const canEdit = isAdmin
+    ? (featureFlags?.editDisbursementAdmin ?? true)
+    : (featureFlags?.editDisbursementUser ?? false);
+
+  const canDelete = isAdmin
+    ? (featureFlags?.deleteDisbursementAdmin ?? true)
+    : (featureFlags?.deleteDisbursementUser ?? false);
+
+  const canPrint = isAdmin
+    ? (featureFlags?.printVoucherAdmin ?? true)
+    : (featureFlags?.printVoucherUser ?? true);
+
+  const canExport = isAdmin
+    ? (featureFlags?.exportDataAdmin ?? true)
+    : (featureFlags?.exportDataUser ?? true);
+
+  const canChangeStatus = isAdmin
+    ? (featureFlags?.editDisbursementAdmin ?? true)
+    : (featureFlags?.editDisbursementUser ?? false);
+  
+  // Custom Grid Line & Density State
+  const [gridStyle, setGridStyle] = useState<'off' | 'light' | 'medium' | 'strong' | 'dashed'>('medium');
+  const [density, setDensity] = useState<'normal' | 'compact' | 'tight'>('compact');
+
+  const getCellPadding = () => {
+    switch (density) {
+      case 'tight':
+        return 'py-1 px-1.5 text-[11px]';
+      case 'compact':
+        return 'py-1.5 px-2 text-[11.5px]';
+      case 'normal':
+      default:
+        return 'py-2.5 px-2.5 text-xs';
+    }
+  };
+
+  const getHeaderPadding = () => {
+    switch (density) {
+      case 'tight':
+        return 'py-1.5 px-1.5 text-[11px]';
+      case 'compact':
+        return 'py-2 px-2 text-[11.5px]';
+      case 'normal':
+      default:
+        return 'py-2.5 px-2.5 text-xs';
+    }
+  };
+
+  const getGridCellClass = () => {
+    switch (gridStyle) {
+      case 'off':
+        return 'border-b border-slate-200';
+      case 'light':
+        return 'border-r border-b border-slate-200';
+      case 'medium':
+        return 'border-r border-b border-slate-300';
+      case 'strong':
+        return 'border-r border-b border-slate-400 font-medium';
+      case 'dashed':
+        return 'border-r border-b border-dashed border-slate-300';
+      default:
+        return 'border-r border-b border-slate-300';
+    }
+  };
+
+  const getHeaderGridClass = () => {
+    switch (gridStyle) {
+      case 'off':
+        return 'border-b border-slate-300';
+      case 'light':
+        return 'border-r border-b border-slate-300';
+      case 'medium':
+        return 'border-r border-b border-slate-400';
+      case 'strong':
+        return 'border-r border-b border-slate-500 font-bold';
+      case 'dashed':
+        return 'border-r border-b border-dashed border-slate-400';
+      default:
+        return 'border-r border-b border-slate-400';
+    }
+  };
+
+  const getOuterTableClass = () => {
+    switch (gridStyle) {
+      case 'off':
+        return 'border-b border-slate-200';
+      case 'light':
+        return 'border-t border-l border-r border-b border-slate-200';
+      case 'medium':
+        return 'border-t border-l border-r border-b border-slate-300';
+      case 'strong':
+        return 'border-t border-l border-r border-b border-slate-400';
+      case 'dashed':
+        return 'border-t border-l border-r border-b border-dashed border-slate-300';
+      default:
+        return 'border-t border-l border-r border-b border-slate-300';
+    }
+  };
 
   const handleExportExcel = () => {
     try {
@@ -185,12 +296,124 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Adjustable Grid Lines Control */}
+            <div className="h-10 p-1 bg-slate-200/80 rounded-lg border border-slate-300 flex items-center gap-1 shrink-0">
+              <span className="text-[11px] font-bold text-slate-700 px-1.5 flex items-center gap-1 shrink-0">
+                <Grid className="w-3.5 h-3.5 text-indigo-600" />
+                <span>เส้นตาราง:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setGridStyle('off')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  gridStyle === 'off' 
+                    ? 'bg-white text-indigo-900 shadow-sm border border-slate-300' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="ไม่มีเส้นตาราง (ซ่อนเส้นตั้ง)"
+              >
+                ปิด
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridStyle('light')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  gridStyle === 'light' 
+                    ? 'bg-white text-indigo-900 shadow-sm border border-slate-300' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="เส้นบาง (สีเทาอ่อน)"
+              >
+                บาง
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridStyle('medium')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  gridStyle === 'medium' 
+                    ? 'bg-white text-indigo-900 shadow-sm border border-slate-300' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="เส้นปกติ"
+              >
+                ปกติ
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridStyle('strong')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  gridStyle === 'strong' 
+                    ? 'bg-white text-indigo-900 shadow-sm border border-slate-300' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="เส้นเข้มชัดเจน"
+              >
+                เข้ม
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridStyle('dashed')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  gridStyle === 'dashed' 
+                    ? 'bg-white text-indigo-900 shadow-sm border border-slate-300' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="เส้นประ"
+              >
+                เส้นประ
+              </button>
+            </div>
+
+            {/* Density / Zoom Controls */}
+            <div className="h-10 p-1 bg-slate-200/80 rounded-lg border border-slate-300 flex items-center gap-1 shrink-0">
+              <span className="text-[11px] font-bold text-slate-700 px-1.5 flex items-center gap-1 shrink-0">
+                <Minimize2 className="w-3.5 h-3.5 text-slate-600" />
+                <span>ย่อตาราง:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setDensity('normal')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  density === 'normal' 
+                    ? 'bg-white text-blue-900 shadow-sm border border-slate-300' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="ขนาดปกติ"
+              >
+                ปกติ
+              </button>
+              <button
+                type="button"
+                onClick={() => setDensity('compact')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  density === 'compact' 
+                    ? 'bg-white text-blue-900 shadow-sm border border-slate-300' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="ย่อเข้า (กะทัดรัด)"
+              >
+                ย่อเข้า
+              </button>
+              <button
+                type="button"
+                onClick={() => setDensity('tight')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  density === 'tight' 
+                    ? 'bg-white text-blue-900 shadow-sm border border-slate-300' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="ย่อสุด (Ultra Compact)"
+              >
+                ย่อสุด
+              </button>
+            </div>
+
             {/* Export Excel Button */}
             <button
               onClick={handleExportExcel}
-              disabled={isExportingExcel || items.length === 0}
+              disabled={!canExport || isExportingExcel || items.length === 0}
               className="h-10 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5 border border-emerald-500 disabled:opacity-50"
-              title="ส่งออกรายการฎีกาเป็นไฟล์ Excel (.xlsx)"
+              title={canExport ? "ส่งออกรายการฎีกาเป็นไฟล์ Excel (.xlsx)" : "ฟังก์ชั่นส่งออกถูกปิดใช้งานโดย Admin"}
             >
               {isExportingExcel ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -203,9 +426,9 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
             {/* Export PDF Button */}
             <button
               onClick={handleExportPdf}
-              disabled={isExportingPdf || items.length === 0}
+              disabled={!canExport || isExportingPdf || items.length === 0}
               className="h-10 px-3.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5 border border-rose-600 disabled:opacity-50"
-              title="ส่งออกรายการฎีกาเป็นไฟล์ PDF (.pdf)"
+              title={canExport ? "ส่งออกรายการฎีกาเป็นไฟล์ PDF (.pdf)" : "ฟังก์ชั่นส่งออกถูกปิดใช้งานโดย Admin"}
             >
               {isExportingPdf ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -252,10 +475,18 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
               className="w-full h-10 px-3 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm"
             >
               <option value="ALL">-- ทุกหน่วยตั้งเบิก --</option>
-              <option value="บก.มทบ.42">บก.มทบ.42</option>
-              <option value="กรม ทพ.42">กรม ทพ.42</option>
-              <option value="ทน.4">ทน.4</option>
-              <option value="ฝคง">ฝคง</option>
+              {departmentList.length > 0 ? (
+                departmentList.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))
+              ) : (
+                <>
+                  <option value="บก.มทบ.42">บก.มทบ.42</option>
+                  <option value="กรม ทพ.42">กรม ทพ.42</option>
+                  <option value="ทน.4">ทน.4</option>
+                  <option value="ฝคง.มทบ.42">ฝคง.มทบ.42</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -270,12 +501,20 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
               className="w-full h-10 px-3 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm"
             >
               <option value="ALL">-- ทุกประเภทรายการ --</option>
-              <option value="งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)">งบบุคลากร</option>
-              <option value="งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)">งบดำเนินงาน</option>
-              <option value="งบสาธารณูปโภค">งบสาธารณูปโภค</option>
-              <option value="งบลงทุน (ค่าครุภัณฑ์/ที่ดิน)">งบลงทุน</option>
-              <option value="งบอุดหนุน/โครงการพิเศษ">งบอุดหนุน/โครงการพิเศษ</option>
-              <option value="งบรายจ่ายอื่น">งบรายจ่ายอื่น</option>
+              {categoryList.length > 0 ? (
+                categoryList.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))
+              ) : (
+                <>
+                  <option value="งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)">งบบุคลากร</option>
+                  <option value="งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)">งบดำเนินงาน</option>
+                  <option value="งบสาธารณูปโภค">งบสาธารณูปโภค</option>
+                  <option value="งบลงทุน (ค่าครุภัณฑ์/ที่ดิน)">งบลงทุน</option>
+                  <option value="งบอุดหนุน/โครงการพิเศษ">งบอุดหนุน/โครงการพิเศษ</option>
+                  <option value="งบรายจ่ายอื่น">งบรายจ่ายอื่น</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -303,26 +542,31 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
       </div>
 
       {/* Main Data Table */}
-      <div className="overflow-x-auto">
+      <div className={`overflow-x-auto ${getOuterTableClass()}`}>
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-100/80 text-slate-700 text-xs font-semibold border-b border-slate-200 uppercase tracking-wider">
-              <th className="py-3 px-3">เลขที่คำขอ</th>
-              <th className="py-3 px-3">หน่วยตั้งเบิก</th>
-              <th className="py-3 px-3">วันที่ตั้งเบิก</th>
-              <th className="py-3 px-3">หลักฐานฎีกา</th>
-              <th className="py-3 px-3">รายการ / ประเภทงบ</th>
-              <th className="py-3 px-3 text-right">ยอดเงิน (บาท)</th>
-              <th className="py-3 px-3">ฝ่ายงบประมาณ / ฝ่ายอนุมัติ</th>
-              <th className="py-3 px-3 text-center">สถานะ</th>
-              <th className="py-3 px-3">หมายเหตุ / วันที่ดำเนินการ</th>
-              <th className="py-3 px-3 text-center">จัดการ</th>
+            <tr className={`text-slate-800 font-semibold uppercase tracking-wider ${
+              gridStyle !== 'off' ? 'bg-slate-200/90' : 'bg-slate-100/80 border-b border-slate-200'
+            }`}>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>เลขที่คำขอ</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>หน่วยตั้งเบิก</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>วันที่ตั้งเบิก</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>หลักฐานฎีกา</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>รายการ</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap text-right`}>ยอดเงิน</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>ฝ่ายงบประมาณ</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>ฝ่ายอนุมัติ</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap text-center`}>สถานะ</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>หมายเหตุ</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>วันที่ส่งคืนเอกสารแก้ไข</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>วันที่โอนเงิน</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap text-center sticky right-0 bg-slate-200 z-10 shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.08)]`}>จัดการ</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 text-xs text-slate-800">
+          <tbody className="text-slate-800">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-slate-400">
+                <td colSpan={13} className="py-12 text-center text-slate-400">
                   <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                   ไม่พบข้อมูลคำขอเบิกจ่ายงบประมาณตรงกับเงื่อนไขที่เลือก
                 </td>
@@ -331,61 +575,63 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
               items.map((item) => (
                 <tr 
                   key={item.id} 
-                  className={`hover:bg-blue-50/40 transition ${
-                    item.status === 'ส่งคืนเอกสารแก้ไข' ? 'bg-rose-50/20' : ''
+                  className={`hover:bg-blue-50/50 transition ${
+                    item.status === 'ส่งคืนเอกสารแก้ไข' ? 'bg-rose-50/30' : ''
                   }`}
                 >
                   
                   {/* 1. เลขที่คำขอ */}
-                  <td className="py-3.5 px-3 font-bold text-blue-900 whitespace-nowrap">
+                  <td className={`${getCellPadding()} ${getGridCellClass()} font-bold text-blue-900 whitespace-nowrap`}>
                     {item.id}
                   </td>
 
                   {/* 2. หน่วยตั้งเบิก */}
-                  <td className="py-3.5 px-3 whitespace-nowrap">
+                  <td className={`${getCellPadding()} ${getGridCellClass()} whitespace-nowrap`}>
                     <span className="font-semibold px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800">
                       {item.department}
                     </span>
                   </td>
 
                   {/* 3. วันที่ตั้งเบิก */}
-                  <td className="py-3.5 px-3 whitespace-nowrap text-slate-600 font-mono">
+                  <td className={`${getCellPadding()} ${getGridCellClass()} whitespace-nowrap text-slate-600 font-mono`}>
                     {item.requestDate}
                   </td>
 
                   {/* 4. หลักฐานฎีกา */}
-                  <td className="py-3.5 px-3 font-medium text-slate-900 whitespace-nowrap">
-                    {item.docNumber}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} font-medium text-slate-900 whitespace-nowrap`}>
+                    {item.docNumber || '-'}
                   </td>
 
-                  {/* 5. รายการ + ประเภทงบ */}
-                  <td className="py-3.5 px-3">
-                    <div className="font-semibold text-slate-900">{item.item}</div>
-                    <div className="text-[11px] text-slate-500 font-medium truncate max-w-xs" title={item.category}>
-                      {item.category}
-                    </div>
+                  {/* 5. รายการ */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()}`}>
+                    <div className="font-semibold text-slate-900 leading-tight">{item.item}</div>
+                    {item.category && (
+                      <div className="text-[10px] text-slate-500 font-medium truncate max-w-xs" title={item.category}>
+                        {item.category}
+                      </div>
+                    )}
                   </td>
 
                   {/* 6. ยอดเงิน */}
-                  <td className="py-3.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap font-mono">
+                  <td className={`${getCellPadding()} ${getGridCellClass()} text-right font-bold text-slate-900 whitespace-nowrap font-mono`}>
                     {formatTHB(item.amount)}
                   </td>
 
-                  {/* 7. ฝ่ายงบประมาณ + ฝ่ายอนุมัติ */}
-                  <td className="py-3.5 px-3">
-                    <div className="text-slate-800 font-medium line-clamp-1" title={item.budgetOfficer}>
-                      <span className="text-slate-400">งบ:</span> {item.budgetOfficer || '-'}
-                    </div>
-                    <div className="text-slate-600 text-[11px] line-clamp-1" title={item.approver}>
-                      <span className="text-slate-400">อนุมัติ:</span> {item.approver || '-'}
-                    </div>
+                  {/* 7. ฝ่ายงบประมาณ */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} text-slate-800 font-medium whitespace-nowrap`}>
+                    {item.budgetOfficer || '-'}
                   </td>
 
-                  {/* 8. สถานะ */}
-                  <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                  {/* 8. ฝ่ายอนุมัติ */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} text-slate-800 font-medium whitespace-nowrap`}>
+                    {item.approver || '-'}
+                  </td>
+
+                  {/* 9. สถานะ */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} text-center whitespace-nowrap`}>
                     {getStatusBadge(item.status)}
                     <div className="mt-1">
-                      {isAdmin ? (
+                      {canChangeStatus ? (
                         <select
                           value={item.status}
                           onChange={(e) => onQuickUpdateStatus(item.id, e.target.value as DisbursementStatus)}
@@ -399,75 +645,95 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
                           <option value="ยกเลิก">ยกเลิก</option>
                         </select>
                       ) : (
-                        <span className="text-[10px] text-slate-400 block" title="ต้องใช้สิทธิ์ Admin ในการเปลี่ยนสถานะ">
+                        <span className="text-[10px] text-slate-400 block" title="ฟังก์ชั่นเปลี่ยนสถานะถูกจำกัดหรือปิดใช้งาน">
                           (อ่านอย่างเดียว)
                         </span>
                       )}
                     </div>
                   </td>
 
-                  {/* 9. หมายเหตุ & วันที่ */}
-                  <td className="py-3.5 px-3 max-w-xs">
-                    <div className={`text-xs font-medium line-clamp-2 ${
+                  {/* 10. หมายเหตุ */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} max-w-xs`}>
+                    <div className={`font-medium line-clamp-2 ${
                       item.status === 'ส่งคืนเอกสารแก้ไข' ? 'text-rose-700 font-semibold' : 'text-slate-700'
                     }`}>
                       {item.notes || '-'}
                     </div>
-                    <div className="text-[10px] text-slate-500 font-mono mt-1 space-x-2">
-                      {item.returnDate && (
-                        <span>ส่งคืน: {item.returnDate}</span>
-                      )}
-                      {item.transferDate && (
-                        <span className="text-emerald-700">โอน: {item.transferDate}</span>
-                      )}
-                    </div>
                   </td>
 
-                  {/* 10. จัดการ */}
-                  <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                  {/* 11. วันที่ส่งคืนเอกสารแก้ไข */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} whitespace-nowrap text-slate-600 font-mono text-center`}>
+                    {item.returnDate ? (
+                      <span className="text-rose-700 font-semibold">{item.returnDate}</span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+
+                  {/* 12. วันที่โอนเงิน */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} whitespace-nowrap text-slate-600 font-mono text-center`}>
+                    {item.transferDate ? (
+                      <span className="text-emerald-700 font-semibold">{item.transferDate}</span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+
+                  {/* 13. จัดการ */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} text-center whitespace-nowrap sticky right-0 bg-white group-hover:bg-blue-50/90 z-10 shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.08)]`}>
                     <div className="flex items-center justify-center space-x-1">
-                      {/* Print Voucher: Available for all users */}
-                      <button
-                        onClick={() => onPrintVoucher(item)}
-                        title="พิมพ์ใบฎีกา / ใบเบิกงบประมาณ"
-                        className="p-1.5 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded transition"
-                      >
-                        <Printer className="w-4 h-4" />
-                      </button>
+                      {/* Print Voucher Button */}
+                      {canPrint ? (
+                        <button
+                          onClick={() => onPrintVoucher(item)}
+                          title="พิมพ์ใบฎีกา / ใบเบิกงบประมาณ"
+                          className="p-1 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded transition"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          title="ฟังก์ชั่นพิมพ์ใบฎีกาถูกปิดใช้งานโดย Admin"
+                          className="p-1 text-slate-300 cursor-not-allowed"
+                        >
+                          <Printer className="w-3.5 h-3.5 opacity-40" />
+                        </button>
+                      )}
 
                       {/* Edit Button */}
-                      {isAdmin ? (
+                      {canEdit ? (
                         <button
                           onClick={() => onEditItem(item)}
-                          title="แก้ไขข้อมูลคำขอ ( Admin )"
-                          className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded transition"
+                          title="แก้ไขข้อมูลคำขอ"
+                          className="p-1 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded transition"
                         >
-                          <Edit3 className="w-4 h-4" />
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
                       ) : (
                         <button
                           onClick={onOpenAdminAuthModal}
                           title="จำกัดสิทธิ์อ่านอย่างเดียว (กดเพื่อใส่รหัสผ่าน Admin)"
-                          className="p-1.5 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded transition"
+                          className="p-1 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded transition"
                         >
                           <Lock className="w-3.5 h-3.5" />
                         </button>
                       )}
 
                       {/* Delete Button */}
-                      {isAdmin ? (
+                      {canDelete ? (
                         <button
                           onClick={() => onDeleteItem(item.id)}
-                          title="ลบคำขอ ( Admin )"
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
+                          title="ลบคำขอ"
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       ) : (
                         <button
                           onClick={onOpenAdminAuthModal}
                           title="จำกัดสิทธิ์อ่านอย่างเดียว (กดเพื่อใส่รหัสผ่าน Admin)"
-                          className="p-1.5 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded transition"
+                          className="p-1 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded transition"
                         >
                           <Lock className="w-3.5 h-3.5" />
                         </button>

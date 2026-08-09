@@ -1,32 +1,62 @@
-import React, { useState } from 'react';
-import { DisbursementItem, BudgetCategory, DisbursementStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { DisbursementItem, BudgetCategory, DisbursementStatus, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS } from '../types';
 import { X, Plus, Building2, Calendar, FileText, DollarSign, UserCheck, Shield } from 'lucide-react';
 
 interface AddRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (item: DisbursementItem) => void;
+  categories?: string[];
+  departmentList?: string[];
+  budgetOfficers?: string[];
+  approvers?: string[];
 }
 
 export const AddRequestModal: React.FC<AddRequestModalProps> = ({
   isOpen,
   onClose,
-  onAdd
+  onAdd,
+  categories,
+  departmentList,
+  budgetOfficers,
+  approvers
 }) => {
-  const [formData, setFormData] = useState<Partial<DisbursementItem>>({
-    department: 'บก.มทบ.42',
+  const categoryOptions = categories && categories.length > 0 ? categories : DEFAULT_BUDGET_CATEGORIES;
+  const deptOptions = departmentList && departmentList.length > 0 ? departmentList : [
+    'บก.มทบ.42',
+    'กรม ทพ.42',
+    'ทน.4',
+    'ฝคง.มทบ.42',
+    'ฝพ.มทบ.42',
+    'ฝกพ.มทบ.42',
+    'ฝกห.มทบ.42',
+    'ร.5 พัน.1'
+  ];
+  const budgetOfficerOptions = budgetOfficers && budgetOfficers.length > 0 ? budgetOfficers : DEFAULT_BUDGET_OFFICERS;
+  const approverOptions = approvers && approvers.length > 0 ? approvers : DEFAULT_APPROVERS;
+
+  const getInitialFormData = (): Partial<DisbursementItem> => ({
+    department: deptOptions[0] || 'บก.มทบ.42',
     requestDate: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'numeric', year: 'numeric' }),
     docNumber: '',
     item: '',
-    category: 'งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)',
+    category: categoryOptions[0] || 'งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)',
     amount: 0,
-    budgetOfficer: 'หัวหน้างบประมาณ',
-    approver: 'นายทหารเบิกจ่าย 1',
+    budgetOfficer: budgetOfficerOptions[0] || 'หัวหน้างบประมาณ',
+    approver: approverOptions[0] || 'นายทหารเบิกจ่าย 1',
     status: 'ยื่นเอกสาร',
     notes: '',
     returnDate: '',
     transferDate: ''
   });
+
+  const [formData, setFormData] = useState<Partial<DisbursementItem>>(getInitialFormData);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(getInitialFormData());
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -39,18 +69,18 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
 
     onAdd({
       id: '', // Will be assigned by backend
-      department: formData.department || 'บก.มทบ.42',
-      requestDate: formData.requestDate || '1/1/2569',
+      department: formData.department || deptOptions[0] || 'บก.มทบ.42',
+      requestDate: formData.requestDate || new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'numeric', year: 'numeric' }),
       docNumber: formData.docNumber,
       item: formData.item,
-      category: (formData.category as BudgetCategory) || 'งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)',
+      category: (formData.category as BudgetCategory) || categoryOptions[0],
       amount: Number(formData.amount),
-      budgetOfficer: formData.budgetOfficer || 'หัวหน้างบประมาณ',
-      approver: formData.approver || 'นายทหารเบิกจ่าย 1',
-      status: (formData.status as DisbursementStatus) || 'ยื่นเอกสาร',
+      budgetOfficer: formData.budgetOfficer || budgetOfficerOptions[0],
+      approver: formData.approver || approverOptions[0],
+      status: 'ยื่นเอกสาร', // Always initial status 'ยื่นเอกสาร'
       notes: formData.notes || '',
-      returnDate: formData.returnDate || '',
-      transferDate: formData.transferDate || ''
+      returnDate: '',
+      transferDate: ''
     });
 
     onClose();
@@ -89,12 +119,9 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               >
-                <option value="บก.มทบ.42">บก.มทบ.42</option>
-                <option value="กรม ทพ.42">กรม ทพ.42</option>
-                <option value="ทน.4">ทน.4</option>
-                <option value="ฝคง">ฝคง</option>
-                <option value="ร.5 พัน.1">ร.5 พัน.1</option>
-                <option value="พัน.พัฒนา 4">พัน.พัฒนา 4</option>
+                {deptOptions.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
               </select>
             </div>
 
@@ -171,77 +198,47 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
               onChange={(e) => setFormData({ ...formData, category: e.target.value as BudgetCategory })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             >
-              <option value="งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)">งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)</option>
-              <option value="งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)">งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)</option>
-              <option value="งบสาธารณูปโภค">งบสาธารณูปโภค</option>
-              <option value="งบลงทุน (ค่าครุภัณฑ์/ที่ดิน)">งบลงทุน (ค่าครุภัณฑ์/ที่ดิน)</option>
-              <option value="งบอุดหนุน/โครงการพิเศษ">งบอุดหนุน/โครงการพิเศษ</option>
-              <option value="งบรายจ่ายอื่น">งบรายจ่ายอื่น</option>
+              {categoryOptions.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
             </select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
             {/* ฝ่ายงบประมาณ */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 ฝ่ายงบประมาณ (ผู้ตรวจ)
               </label>
-              <input
-                type="text"
-                value={formData.budgetOfficer}
+              <select
+                value={formData.budgetOfficer || ''}
                 onChange={(e) => setFormData({ ...formData, budgetOfficer: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800"
-              />
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                {budgetOfficerOptions.map((off) => (
+                  <option key={off} value={off}>{off}</option>
+                ))}
+              </select>
             </div>
 
             {/* ฝ่ายอนุมัติ */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ฝ่ายอนุมัติ
-              </label>
-              <input
-                type="text"
-                value={formData.approver}
-                onChange={(e) => setFormData({ ...formData, approver: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800"
-              />
-            </div>
-
-            {/* สถานะ */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                สถานะการเบิกจ่าย
+                ฝ่ายอนุมัติ (นายทหารเบิกจ่าย)
               </label>
               <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as DisbursementStatus })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 font-semibold"
+                value={formData.approver || ''}
+                onChange={(e) => setFormData({ ...formData, approver: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               >
-                <option value="ยื่นเอกสาร">ยื่นเอกสาร</option>
-                <option value="รอตรวจสอบเอกสาร">รอตรวจสอบเอกสาร</option>
-                <option value="อนุมัติ">อนุมัติ</option>
-                <option value="ส่งคืนเอกสารแก้ไข">ส่งคืนเอกสารแก้ไข</option>
-                <option value="โอนเงินแล้ว">โอนเงินแล้ว</option>
-                <option value="ยกเลิก">ยกเลิก</option>
+                {approverOptions.map((app) => (
+                  <option key={app} value={app}>{app}</option>
+                ))}
               </select>
             </div>
-
-            {/* วันที่โอนเงิน */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                วันที่โอนเงิน (ถ้ามี)
-              </label>
-              <input
-                type="text"
-                placeholder="เช่น 6/2/2569"
-                value={formData.transferDate}
-                onChange={(e) => setFormData({ ...formData, transferDate: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800"
-              />
-            </div>
-
           </div>
+
+
 
           {/* หมายเหตุ */}
           <div>

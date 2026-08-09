@@ -9,17 +9,22 @@ import { EditRequestModal } from './components/EditRequestModal';
 import { PrintVoucherModal } from './components/PrintVoucherModal';
 import { AdminAuthModal } from './components/AdminAuthModal';
 import { AuthModal } from './components/AuthModal';
+import { SystemManagement } from './components/SystemManagement';
+import { PermissionsManagement } from './components/PermissionsManagement';
+import { IdleTimeoutWarningModal } from './components/IdleTimeoutWarningModal';
 
-import { DisbursementItem, DisbursementStatus, MonthlySummary, CategorySummary, DepartmentSummary, UserProfile } from './types';
+import { DisbursementItem, DisbursementStatus, MonthlySummary, CategorySummary, DepartmentSummary, UserProfile, FeatureFlags, DEFAULT_FEATURE_FLAGS, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS } from './types';
 import { exportToExcel, exportToPdf } from './utils/exportUtils';
 import { 
   subscribeToDisbursements, 
   subscribeAppLogo,
+  subscribeAppConfig,
   saveDisbursementDoc, 
   updateDisbursementDoc, 
   deleteDisbursementDoc,
   subscribeAuthState,
-  logoutUserWithFirebase
+  logoutUserWithFirebase,
+  subscribeAllUsers
 } from './firebase';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -33,7 +38,7 @@ export default function App() {
 
   // User Auth & Role State
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'register'>('login');
 
   // Admin Role Lock & Permission State
@@ -42,16 +47,95 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState(() => {
     return localStorage.getItem('mthb42_admin_pass') || 'admin123';
   });
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
 
-  // Subscribe to Auth State
+  // Auto Logout / Idle Security State
+  const [idleMinutesSetting, setIdleMinutesSetting] = useState<number>(() => {
+    const saved = localStorage.getItem('mthb42_idle_minutes');
+    return saved ? parseInt(saved, 10) : 30; // Default 30 minutes
+  });
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const [remainingIdleSeconds, setRemainingIdleSeconds] = useState(120);
+  const [currentIdleSecondsLeft, setCurrentIdleSecondsLeft] = useState<number>(idleMinutesSetting * 60);
+  const lastActivityRef = React.useRef<number>(Date.now());
+
+  const handleUpdateIdleMinutes = (minutes: number) => {
+    setIdleMinutesSetting(minutes);
+    localStorage.setItem('mthb42_idle_minutes', minutes.toString());
+  };
+
+  const handleUpdateAdminPassword = (newPass: string) => {
+    setAdminPassword(newPass);
+    localStorage.setItem('mthb42_admin_pass', newPass);
+  };
+
+  // Dynamic App Config State (Categories, Departments & Officers)
+  // System Configuration & Feature Flags State
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS);
+  const [categories, setCategories] = useState<string[]>(DEFAULT_BUDGET_CATEGORIES);
+  const [departments, setDepartments] = useState<string[]>([
+    'บก.มทบ.42',
+    'กรม ทพ.42',
+    'ทน.4',
+    'ฝคง.มทบ.42',
+    'ฝพ.มทบ.42',
+    'ฝกพ.มทบ.42',
+    'ฝกห.มทบ.42',
+    'ร.5 พัน.1'
+  ]);
+  const [budgetOfficers, setBudgetOfficers] = useState<string[]>(DEFAULT_BUDGET_OFFICERS);
+  const [approvers, setApprovers] = useState<string[]>(DEFAULT_APPROVERS);
+
+  // Subscribe to Auth State, All Users List, Disbursements & Config
   useEffect(() => {
-    const unsubscribe = subscribeAuthState((profile) => {
+    const unsubscribeAuth = subscribeAuthState((profile) => {
       setCurrentUserProfile(profile);
       if (profile?.role === 'ADMIN') {
         setIsAdmin(true);
       }
+      if (!profile) {
+        setIsAuthModalOpen(true);
+      }
     });
-    return () => unsubscribe();
+
+    const unsubscribeUsers = subscribeAllUsers((usersList) => {
+      setAllUsers(usersList);
+    });
+
+    const unsubscribeDisbursements = subscribeToDisbursements(
+      (items) => {
+        setRawItems(items);
+        setIsLoading(false);
+      },
+      (err) => {
+        setIsLoading(false);
+      }
+    );
+
+    const unsubscribeConfig = subscribeAppConfig((cfg) => {
+      if (cfg.categoryList && cfg.categoryList.length > 0) {
+        setCategories(cfg.categoryList);
+      }
+      if (cfg.departmentList && cfg.departmentList.length > 0) {
+        setDepartments(cfg.departmentList);
+      }
+      if (cfg.budgetOfficerList && cfg.budgetOfficerList.length > 0) {
+        setBudgetOfficers(cfg.budgetOfficerList);
+      }
+      if (cfg.approverList && cfg.approverList.length > 0) {
+        setApprovers(cfg.approverList);
+      }
+      if (cfg.featureFlags) {
+        setFeatureFlags({ ...DEFAULT_FEATURE_FLAGS, ...cfg.featureFlags });
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeUsers();
+      unsubscribeDisbursements();
+      unsubscribeConfig();
+    };
   }, []);
 
   const handleOpenAuthModal = (tab: 'login' | 'register' = 'login') => {
@@ -64,6 +148,7 @@ export default function App() {
     if (profile.role === 'ADMIN') {
       setIsAdmin(true);
     }
+    setIsAuthModalOpen(false);
     showToast(`เข้าสู่ระบบในนาม ${profile.displayName} (${profile.role === 'ADMIN' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'})`, 'success');
   };
 
@@ -71,8 +156,54 @@ export default function App() {
     await logoutUserWithFirebase();
     setCurrentUserProfile(null);
     setIsAdmin(false);
+    setShowIdleWarning(false);
+    setIsAuthModalOpen(true);
     showToast('ออกจากระบบเรียบร้อยแล้ว', 'success');
   };
+
+  // Idle Timeout / Auto Logout Listener Effect
+  useEffect(() => {
+    if (!currentUserProfile && !isAdmin) {
+      setShowIdleWarning(false);
+      return;
+    }
+    if (idleMinutesSetting <= 0) return; // 0 = Disabled
+
+    const resetIdleTimer = () => {
+      lastActivityRef.current = Date.now();
+      setCurrentIdleSecondsLeft(idleMinutesSetting * 60);
+      setShowIdleWarning(false);
+    };
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'pointermove'];
+    activityEvents.forEach(evt => window.addEventListener(evt, resetIdleTimer, { passive: true }));
+
+    const checkInterval = setInterval(() => {
+      const elapsedMs = Date.now() - lastActivityRef.current;
+      const timeoutMs = idleMinutesSetting * 60 * 1000;
+      const warningWindowMs = 2 * 60 * 1000; // Show warning when 2 mins remain
+      const remSec = Math.max(0, Math.ceil((timeoutMs - elapsedMs) / 1000));
+
+      setCurrentIdleSecondsLeft(remSec);
+
+      if (elapsedMs >= timeoutMs) {
+        setShowIdleWarning(false);
+        handleLogout();
+        showToast(`ระบบตัดการเชื่อมต่อและออกจากระบบอัตโนมัติ เนื่องจากไม่มีการใช้งานเป็นเวลา ${idleMinutesSetting} นาที`, 'error');
+      } else if (elapsedMs >= timeoutMs - warningWindowMs) {
+        const remaining = Math.max(0, Math.ceil((timeoutMs - elapsedMs) / 1000));
+        setRemainingIdleSeconds(remaining);
+        setShowIdleWarning(true);
+      } else {
+        setShowIdleWarning(false);
+      }
+    }, 1000);
+
+    return () => {
+      activityEvents.forEach(evt => window.removeEventListener(evt, resetIdleTimer));
+      clearInterval(checkInterval);
+    };
+  }, [currentUserProfile, isAdmin, idleMinutesSetting]);
 
 
   // Filters
@@ -86,6 +217,7 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<DisbursementItem | null>(null);
   const [printingItem, setPrintingItem] = useState<DisbursementItem | null>(null);
+  const [deletingDisbursementId, setDeletingDisbursementId] = useState<string | null>(null);
 
   // Google Drive & Sheets
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
@@ -126,9 +258,12 @@ export default function App() {
   };
 
   const handleAttemptAddModal = () => {
-    if (!isAdmin) {
-      showToast('จำกัดสิทธิ์ผู้ใช้ทั่วไป (อ่านอย่างเดียว) กรุณาปลดล็อก Admin ก่อนตั้งเบิกใหม่', 'error');
-      setIsAdminAuthModalOpen(true);
+    const canCreate = isAdmin
+      ? (featureFlags.createDisbursementAdmin ?? true)
+      : (featureFlags.createDisbursementUser ?? true);
+
+    if (!canCreate) {
+      showToast('ฟังก์ชั่นยื่นคำขอตั้งเบิกถูกปิดใช้งานชั่วคราวโดยผู้ดูแลระบบ', 'error');
       return;
     }
     setIsAddModalOpen(true);
@@ -381,7 +516,10 @@ export default function App() {
   // Add Disbursement Request to Firestore
   const handleAddRequest = async (newItem: DisbursementItem) => {
     try {
-      let finalItem = { ...newItem };
+      let finalItem: DisbursementItem = { 
+        ...newItem,
+        status: 'ยื่นเอกสาร'
+      };
       if (!finalItem.id) {
         const maxId = rawItems.reduce((max, item) => {
           const num = parseInt((item.id || '').replace(/\D/g, '')) || 0;
@@ -391,7 +529,7 @@ export default function App() {
       }
 
       await saveDisbursementDoc(finalItem);
-      showToast(`บันทึกคำขอเบิกจ่าย #${finalItem.id} เข้า Firestore สำเร็จ!`);
+      showToast(`บันทึกคำขอเบิกจ่าย #${finalItem.id} เข้า Firestore สำเร็จ! (สถานะเริ่มต้น: ยื่นเอกสาร)`);
     } catch (err) {
       console.error('Add request error:', err);
       showToast('บันทึกข้อมูลเข้า Firestore ล้มเหลว', 'error');
@@ -410,13 +548,17 @@ export default function App() {
   };
 
   // Delete Disbursement Request from Firestore
-  const handleDeleteRequest = async (id: string) => {
-    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบคำขอเบิกจ่าย #${id} จาก Firestore?`)) {
-      return;
-    }
+  const handleDeleteRequest = (id: string) => {
+    setDeletingDisbursementId(id);
+  };
+
+  const handleConfirmDeleteRequest = async () => {
+    if (!deletingDisbursementId) return;
+    const targetId = deletingDisbursementId;
     try {
-      await deleteDisbursementDoc(id);
-      showToast(`ลบรายการ #${id} จาก Firestore เรียบร้อยแล้ว`);
+      await deleteDisbursementDoc(targetId);
+      showToast(`ลบรายการ #${targetId} จาก Firestore เรียบร้อยแล้ว`);
+      setDeletingDisbursementId(null);
     } catch (err) {
       console.error('Delete request error:', err);
       showToast('ไม่สามารถลบรายการจาก Firestore ได้', 'error');
@@ -485,11 +627,13 @@ export default function App() {
           currentUserProfile={currentUserProfile}
           onOpenAuthModal={handleOpenAuthModal}
           onLogout={handleLogout}
+          idleMinutesSetting={idleMinutesSetting}
+          idleSecondsLeft={currentIdleSecondsLeft}
         />
 
 
         {/* Main Content Container */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        <main className="flex-1 max-w-[1700px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
           
           {/* Toast Notification */}
           {notification && (
@@ -505,43 +649,68 @@ export default function App() {
             </div>
           )}
 
-          {/* 1. Real-Time Metric Cards */}
-          <div id="dashboard">
-            <MetricsCards stats={stats} />
-          </div>
-
-          {/* 2. Complete Disbursement Data Table */}
-          <div id="table">
-            <DisbursementTable
-              items={filteredItems}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              selectedMonth={selectedMonth}
-              onMonthChange={setSelectedMonth}
-              selectedDept={selectedDept}
-              onDeptChange={setSelectedDept}
-              selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-              selectedStatus={selectedStatus}
-              onStatusChange={setSelectedStatus}
-              onEditItem={setEditingItem}
-              onDeleteItem={handleDeleteRequest}
-              onPrintVoucher={setPrintingItem}
-              onQuickUpdateStatus={handleQuickStatusUpdate}
-              monthOptions={monthOptions}
+          {/* Conditional View Rendering based on activeTab */}
+          {activeTab === 'system' ? (
+            <SystemManagement 
               isAdmin={isAdmin}
-              onOpenAdminAuthModal={() => setIsAdminAuthModalOpen(true)}
+              currentUserProfile={currentUserProfile}
+              adminPassword={adminPassword}
+              onUpdateAdminPassword={handleUpdateAdminPassword}
+              showToast={showToast}
+              disbursementsCount={rawItems.length}
+              usersCount={allUsers.length}
+              idleMinutesSetting={idleMinutesSetting}
+              onUpdateIdleMinutes={handleUpdateIdleMinutes}
             />
-          </div>
+          ) : activeTab === 'permissions' ? (
+            <PermissionsManagement 
+              isAdmin={isAdmin || currentUserProfile?.role === 'ADMIN'}
+              currentUserProfile={currentUserProfile}
+              showToast={showToast}
+            />
+          ) : activeTab === 'charts' ? (
+            <div id="charts">
+              <MonthlyCharts
+                monthlyData={stats.monthlyList}
+                categoryData={stats.categoryList}
+                departmentData={stats.departmentList}
+              />
+            </div>
+          ) : (
+            <>
+              {/* 1. Real-Time Metric Cards */}
+              <div id="dashboard">
+                <MetricsCards stats={stats} />
+              </div>
 
-          {/* 3. Real-Time Monthly & Categorized Charts */}
-          <div id="charts">
-            <MonthlyCharts
-              monthlyData={stats.monthlyList}
-              categoryData={stats.categoryList}
-              departmentData={stats.departmentList}
-            />
-          </div>
+              {/* 2. Complete Disbursement Data Table */}
+              <div id="table">
+                <DisbursementTable
+                  items={filteredItems}
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  selectedMonth={selectedMonth}
+                  onMonthChange={setSelectedMonth}
+                  selectedDept={selectedDept}
+                  onDeptChange={setSelectedDept}
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                  selectedStatus={selectedStatus}
+                  onStatusChange={setSelectedStatus}
+                  onEditItem={setEditingItem}
+                  onDeleteItem={handleDeleteRequest}
+                  onPrintVoucher={setPrintingItem}
+                  onQuickUpdateStatus={handleQuickStatusUpdate}
+                  monthOptions={monthOptions}
+                  isAdmin={isAdmin}
+                  onOpenAdminAuthModal={() => setIsAdminAuthModalOpen(true)}
+                  categoryList={categories}
+                  departmentList={departments}
+                  featureFlags={featureFlags}
+                />
+              </div>
+            </>
+          )}
 
         </main>
       </div>
@@ -551,6 +720,10 @@ export default function App() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAdd={handleAddRequest}
+        categories={categories}
+        departmentList={departments}
+        budgetOfficers={budgetOfficers}
+        approvers={approvers}
       />
 
       <EditRequestModal
@@ -558,6 +731,10 @@ export default function App() {
         item={editingItem}
         onClose={() => setEditingItem(null)}
         onSave={handleSaveEdit}
+        categories={categories}
+        departmentList={departments}
+        budgetOfficers={budgetOfficers}
+        approvers={approvers}
       />
 
       <PrintVoucherModal
@@ -582,6 +759,51 @@ export default function App() {
         initialTab={authModalInitialTab}
         adminPassword={adminPassword}
       />
+
+      <IdleTimeoutWarningModal
+        isOpen={showIdleWarning}
+        remainingSeconds={remainingIdleSeconds}
+        idleMinutes={idleMinutesSetting}
+        onContinue={() => {
+          lastActivityRef.current = Date.now();
+          setShowIdleWarning(false);
+          showToast('ต่ออายุการเข้าใช้งานเรียบร้อยแล้ว', 'success');
+        }}
+        onLogoutNow={handleLogout}
+      />
+
+      {/* Modal: Confirm Delete Disbursement Request */}
+      {deletingDisbursementId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 text-center space-y-4">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">ยืนยันการลบรายการฎีกา</h3>
+              <p className="text-xs text-slate-600 mt-1">
+                คุณแน่ใจหรือไม่ว่าต้องการลบคำขอเบิกจ่าย <span className="font-bold text-slate-900">#{deletingDisbursementId}</span> ออกจากฐานข้อมูล?
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingDisbursementId(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteRequest}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-rose-600/20"
+              >
+                ยืนยันลบรายการ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

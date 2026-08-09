@@ -21,7 +21,7 @@ import {
   updateProfile,
   User
 } from 'firebase/auth';
-import { DisbursementItem, UserProfile, UserRole } from './types';
+import { DisbursementItem, UserProfile, UserRole, FeatureFlags } from './types';
 import { INITIAL_DISBURSEMENTS, MTHB42_LOGO_URL } from './data/initialData';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -226,7 +226,9 @@ export const registerUserWithFirebase = async (data: {
   rank?: string;
   role: UserRole;
 }): Promise<UserProfile> => {
-  const cleanEmail = data.email.trim().toLowerCase();
+  const rawInput = data.email.trim().toLowerCase();
+  const cleanEmail = rawInput.includes('@') ? rawInput : `${rawInput}@mthb42.local`;
+  const username = rawInput.includes('@') ? rawInput.split('@')[0] : rawInput;
   
   try {
     // 1. Try creating Firebase Auth account
@@ -251,20 +253,30 @@ export const registerUserWithFirebase = async (data: {
       lastLoginAt: new Date().toISOString()
     };
 
-    await saveUserProfileDoc(profile);
+    const userRef = doc(db, USERS_COLLECTION, authUser.uid);
+    await setDoc(userRef, {
+      ...profile,
+      username: username,
+      passSecret: btoa(data.password),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
     return profile;
   } catch (firebaseErr: any) {
-    console.warn('Firebase Auth register attempt failed, trying direct Firestore user account:', firebaseErr.message || firebaseErr);
+    console.warn('Firebase Auth register attempt failed, storing direct Firestore user account:', firebaseErr.message || firebaseErr);
     
-    // Fallback: If Firebase Auth Email/Password provider is not turned on in GCP console,
-    // store user directly in Firestore `users` collection with a generated ID
+    // Fallback: If Firebase Auth is unavailable or disabled,
+    // store user directly in Firestore `users` collection with a custom ID
     const customUid = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     
-    // Check if email already exists in Firestore
+    // Check if email or username already exists in Firestore
     const existingSnap = await getDocs(query(collection(db, USERS_COLLECTION)));
-    const existing = existingSnap.docs.find(d => d.data().email === cleanEmail);
+    const existing = existingSnap.docs.find(d => {
+      const uData = d.data();
+      return uData.email === cleanEmail || uData.username === username || (uData.email && uData.email.toLowerCase() === cleanEmail);
+    });
     if (existing) {
-      throw new Error('อีเมลนี้ถูกใช้งานในระบบแล้ว กรุณาใช้อีเมลอื่น หรือกดเข้าสู่ระบบ');
+      throw new Error('ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้งานในระบบแล้ว กรุณาใช้ชื่ออื่น หรือเข้าสู่ระบบ');
     }
 
     const profile: UserProfile = {
@@ -278,11 +290,12 @@ export const registerUserWithFirebase = async (data: {
       lastLoginAt: new Date().toISOString()
     };
 
-    // Store custom account with hashed/stored password field for fallback auth
+    // Store custom account with passSecret field for authentication
     const userRef = doc(db, USERS_COLLECTION, customUid);
     await setDoc(userRef, {
       ...profile,
-      passSecret: btoa(data.password), // simple obfuscation for local fallback
+      username: username,
+      passSecret: btoa(data.password),
       updatedAt: new Date().toISOString()
     });
 
@@ -297,7 +310,9 @@ export const loginUserWithFirebase = async (
   emailInput: string, 
   passwordInput: string
 ): Promise<UserProfile> => {
-  const cleanEmail = emailInput.trim().toLowerCase();
+  const rawInput = emailInput.trim().toLowerCase();
+  const cleanEmail = rawInput.includes('@') ? rawInput : `${rawInput}@mthb42.local`;
+  const username = rawInput.includes('@') ? rawInput.split('@')[0] : rawInput;
 
   try {
     // 1. Try Firebase Auth sign in
@@ -310,7 +325,7 @@ export const loginUserWithFirebase = async (
       profile = {
         uid: authUser.uid,
         email: cleanEmail,
-        displayName: authUser.displayName || cleanEmail.split('@')[0],
+        displayName: authUser.displayName || rawInput,
         department: 'บก.มทบ.42',
         role: 'USER',
         createdAt: new Date().toISOString(),
@@ -325,25 +340,31 @@ export const loginUserWithFirebase = async (
 
     return profile;
   } catch (firebaseErr: any) {
-    console.warn('Firebase Auth login failed, checking Firestore fallback user accounts:', firebaseErr.message || firebaseErr);
+    console.warn('Firebase Auth login failed, checking Firestore user accounts:', firebaseErr.message || firebaseErr);
 
     // Fallback: Check Firestore `users` collection for matching account
     const snap = await getDocs(query(collection(db, USERS_COLLECTION)));
     const foundDoc = snap.docs.find(d => {
       const data = d.data();
-      return data.email === cleanEmail && (data.passSecret === btoa(passwordInput) || passwordInput === 'admin123');
+      const matchIdentity = 
+        data.email === cleanEmail || 
+        data.email === rawInput || 
+        data.username === username ||
+        (data.email && data.email.toLowerCase() === cleanEmail);
+      const matchPass = data.passSecret === btoa(passwordInput) || passwordInput === 'admin123';
+      return matchIdentity && matchPass;
     });
 
     if (foundDoc) {
       const data = foundDoc.data();
       const profile: UserProfile = {
         uid: foundDoc.id,
-        email: data.email,
-        displayName: data.displayName,
+        email: data.email || cleanEmail,
+        displayName: data.displayName || 'ผู้ใช้งาน',
         department: data.department || 'บก.มทบ.42',
         rank: data.rank || '',
         role: data.role || 'USER',
-        createdAt: data.createdAt,
+        createdAt: data.createdAt || new Date().toISOString(),
         lastLoginAt: new Date().toISOString()
       };
       await saveUserProfileDoc(profile);
@@ -352,10 +373,10 @@ export const loginUserWithFirebase = async (
 
     // Custom clear error messages for Thai user
     if (firebaseErr.code === 'auth/invalid-credential' || firebaseErr.code === 'auth/wrong-password' || firebaseErr.code === 'auth/user-not-found') {
-      throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง');
+      throw new Error('ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง');
     }
 
-    throw new Error(firebaseErr.message || 'ไม่สามารถเข้าสู่ระบบได้ กรุณาตรวจสอบอีเมลและรหัสผ่าน');
+    throw new Error(firebaseErr.message || 'ไม่สามารถเข้าสู่ระบบได้ กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน');
   }
 };
 
@@ -394,5 +415,115 @@ export const subscribeAuthState = (
       onProfileChange(null);
     }
   });
+};
+
+/**
+ * Subscribe to all User Profiles in Firestore
+ */
+export const subscribeAllUsers = (
+  onUsersChange: (users: UserProfile[]) => void
+) => {
+  const colRef = collection(db, USERS_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const usersList: UserProfile[] = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          uid: d.id,
+          email: data.email || '',
+          displayName: data.displayName || 'ผู้ใช้งาน',
+          department: data.department || 'บก.มทบ.42',
+          rank: data.rank || '',
+          role: data.role || 'USER',
+          passSecret: data.passSecret || '',
+          createdAt: data.createdAt || new Date().toISOString(),
+          lastLoginAt: data.lastLoginAt || ''
+        };
+      });
+      onUsersChange(usersList);
+    },
+    (err) => {
+      console.error('Firestore users subscription error:', err);
+    }
+  );
+};
+
+/**
+ * Update User Role and Profile details
+ */
+export const updateUserRoleAndInfo = async (
+  uid: string, 
+  updates: Partial<UserProfile>
+) => {
+  const userRef = doc(db, USERS_COLLECTION, uid);
+  await updateDoc(userRef, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
+};
+
+/**
+ * Delete User Account from Firestore
+ */
+export const deleteUserDoc = async (uid: string) => {
+  const userRef = doc(db, USERS_COLLECTION, uid);
+  await deleteDoc(userRef);
+};
+
+/**
+ * Reset/Update User Password by Admin
+ */
+export const adminUpdateUserPassword = async (uid: string, newPassword: string) => {
+  const userRef = doc(db, USERS_COLLECTION, uid);
+  await updateDoc(userRef, {
+    passSecret: btoa(newPassword),
+    updatedAt: new Date().toISOString()
+  });
+};
+
+/**
+ * System Settings interface
+ */
+export interface SystemSettingsDoc {
+  adminPin?: string;
+  systemName?: string;
+  departmentList?: string[];
+  categoryList?: string[];
+  budgetOfficerList?: string[];
+  approverList?: string[];
+  maintenanceMode?: boolean;
+  featureFlags?: Partial<FeatureFlags>;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+const SETTINGS_DOC_ID = 'settings';
+
+/**
+ * Subscribe to System Settings in Firestore
+ */
+export const subscribeAppConfig = (
+  onConfigChange: (config: SystemSettingsDoc) => void
+) => {
+  const docRef = doc(db, APP_CONFIG_COLLECTION, SETTINGS_DOC_ID);
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      onConfigChange(snap.data() as SystemSettingsDoc);
+    } else {
+      onConfigChange({});
+    }
+  });
+};
+
+/**
+ * Save System Settings to Firestore
+ */
+export const saveAppConfig = async (settings: SystemSettingsDoc) => {
+  const docRef = doc(db, APP_CONFIG_COLLECTION, SETTINGS_DOC_ID);
+  await setDoc(docRef, {
+    ...settings,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
 };
 

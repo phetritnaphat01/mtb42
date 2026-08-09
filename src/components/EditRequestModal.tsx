@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { DisbursementItem, BudgetCategory, DisbursementStatus } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { DisbursementItem, BudgetCategory, DisbursementStatus, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS } from '../types';
 import { X, Save, Edit3 } from 'lucide-react';
 
 interface EditRequestModalProps {
@@ -7,15 +7,50 @@ interface EditRequestModalProps {
   item: DisbursementItem | null;
   onClose: () => void;
   onSave: (updatedItem: DisbursementItem) => void;
+  categories?: string[];
+  departmentList?: string[];
+  budgetOfficers?: string[];
+  approvers?: string[];
 }
 
 export const EditRequestModal: React.FC<EditRequestModalProps> = ({
   isOpen,
   item,
   onClose,
-  onSave
+  onSave,
+  categories,
+  departmentList,
+  budgetOfficers,
+  approvers
 }) => {
   const [formData, setFormData] = useState<DisbursementItem | null>(null);
+  const categoryOptions = categories && categories.length > 0 ? categories : DEFAULT_BUDGET_CATEGORIES;
+  const deptOptions = departmentList && departmentList.length > 0 ? departmentList : [
+    'บก.มทบ.42',
+    'กรม ทพ.42',
+    'ทน.4',
+    'ฝคง.มทบ.42',
+    'ฝพ.มทบ.42',
+    'ฝกพ.มทบ.42',
+    'ฝกห.มทบ.42',
+    'ร.5 พัน.1'
+  ];
+
+  const budgetOfficerOpts = useMemo(() => {
+    const base = budgetOfficers && budgetOfficers.length > 0 ? budgetOfficers : DEFAULT_BUDGET_OFFICERS;
+    if (formData?.budgetOfficer && !base.includes(formData.budgetOfficer)) {
+      return [formData.budgetOfficer, ...base];
+    }
+    return base;
+  }, [budgetOfficers, formData?.budgetOfficer]);
+
+  const approverOpts = useMemo(() => {
+    const base = approvers && approvers.length > 0 ? approvers : DEFAULT_APPROVERS;
+    if (formData?.approver && !base.includes(formData.approver)) {
+      return [formData.approver, ...base];
+    }
+    return base;
+  }, [approvers, formData?.approver]);
 
   useEffect(() => {
     if (item) {
@@ -77,12 +112,9 @@ export const EditRequestModal: React.FC<EditRequestModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800"
               >
-                <option value="บก.มทบ.42">บก.มทบ.42</option>
-                <option value="กรม ทพ.42">กรม ทพ.42</option>
-                <option value="ทน.4">ทน.4</option>
-                <option value="ฝคง">ฝคง</option>
-                <option value="ร.5 พัน.1">ร.5 พัน.1</option>
-                <option value="พัน.พัฒนา 4">พัน.พัฒนา 4</option>
+                {deptOptions.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
               </select>
             </div>
 
@@ -174,12 +206,9 @@ export const EditRequestModal: React.FC<EditRequestModalProps> = ({
               onChange={(e) => setFormData({ ...formData, category: e.target.value as BudgetCategory })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800"
             >
-              <option value="งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)">งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)</option>
-              <option value="งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)">งบดำเนินงาน (ค่าตอบแทน ใช้สอย และวัสดุ)</option>
-              <option value="งบสาธารณูปโภค">งบสาธารณูปโภค</option>
-              <option value="งบลงทุน (ค่าครุภัณฑ์/ที่ดิน)">งบลงทุน (ค่าครุภัณฑ์/ที่ดิน)</option>
-              <option value="งบอุดหนุน/โครงการพิเศษ">งบอุดหนุน/โครงการพิเศษ</option>
-              <option value="งบรายจ่ายอื่น">งบรายจ่ายอื่น</option>
+              {categoryOptions.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
             </select>
           </div>
 
@@ -188,27 +217,35 @@ export const EditRequestModal: React.FC<EditRequestModalProps> = ({
             {/* ฝ่ายงบประมาณ */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ฝ่ายงบประมาณ
+                ฝ่ายงบประมาณ (ผู้ตรวจ)
               </label>
-              <input
-                type="text"
-                value={formData.budgetOfficer}
+              <select
+                value={formData.budgetOfficer || ''}
                 onChange={(e) => setFormData({ ...formData, budgetOfficer: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800"
-              />
+              >
+                <option value="">-- เลือกฝ่ายงบประมาณ --</option>
+                {budgetOfficerOpts.map((off) => (
+                  <option key={off} value={off}>{off}</option>
+                ))}
+              </select>
             </div>
 
             {/* ฝ่ายอนุมัติ */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ฝ่ายอนุมัติ
+                ฝ่ายอนุมัติ (นายทหารเบิกจ่าย)
               </label>
-              <input
-                type="text"
-                value={formData.approver}
+              <select
+                value={formData.approver || ''}
                 onChange={(e) => setFormData({ ...formData, approver: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800"
-              />
+              >
+                <option value="">-- เลือกฝ่ายอนุมัติ --</option>
+                {approverOpts.map((app) => (
+                  <option key={app} value={app}>{app}</option>
+                ))}
+              </select>
             </div>
 
             {/* วันที่ส่งคืนเอกสารแก้ไข */}
