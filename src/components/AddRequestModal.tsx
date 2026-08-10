@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { DisbursementItem, BudgetCategory, DisbursementStatus, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS } from '../types';
+import { 
+  DisbursementItem, 
+  BudgetCategory, 
+  DisbursementStatus, 
+  DEFAULT_BUDGET_CATEGORIES, 
+  DEFAULT_BUDGET_OFFICERS, 
+  DEFAULT_APPROVERS,
+  DEFAULT_DOC_AUDIT_STATUSES,
+  DEFAULT_DISBURSEMENT_STATUSES
+} from '../types';
 import { X, Plus, Building2, Calendar, FileText, DollarSign, UserCheck, Shield } from 'lucide-react';
 
 interface AddRequestModalProps {
@@ -10,6 +19,8 @@ interface AddRequestModalProps {
   departmentList?: string[];
   budgetOfficers?: string[];
   approvers?: string[];
+  docAuditStatusList?: string[];
+  statusList?: string[];
 }
 
 export const AddRequestModal: React.FC<AddRequestModalProps> = ({
@@ -19,7 +30,9 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
   categories,
   departmentList,
   budgetOfficers,
-  approvers
+  approvers,
+  docAuditStatusList = [],
+  statusList = []
 }) => {
   const categoryOptions = categories && categories.length > 0 ? categories : DEFAULT_BUDGET_CATEGORIES;
   const deptOptions = departmentList && departmentList.length > 0 ? departmentList : [
@@ -34,6 +47,8 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
   ];
   const budgetOfficerOptions = budgetOfficers && budgetOfficers.length > 0 ? budgetOfficers : DEFAULT_BUDGET_OFFICERS;
   const approverOptions = approvers && approvers.length > 0 ? approvers : DEFAULT_APPROVERS;
+  const docAuditStatusOptions = docAuditStatusList && docAuditStatusList.length > 0 ? docAuditStatusList : DEFAULT_DOC_AUDIT_STATUSES;
+  const statusOptions = statusList && statusList.length > 0 ? statusList : DEFAULT_DISBURSEMENT_STATUSES;
 
   const getInitialFormData = (): Partial<DisbursementItem> => ({
     department: deptOptions[0] || 'บก.มทบ.42',
@@ -44,7 +59,8 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
     amount: 0,
     budgetOfficer: budgetOfficerOptions[0] || 'หัวหน้างบประมาณ',
     approver: approverOptions[0] || 'นายทหารเบิกจ่าย 1',
-    status: 'ยื่นเอกสาร',
+    docAuditStatus: docAuditStatusOptions[0] || 'ยื่นเอกสาร',
+    status: statusOptions[0] || 'ยื่นเอกสาร',
     notes: '',
     returnDate: '',
     transferDate: ''
@@ -77,7 +93,8 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
       amount: Number(formData.amount),
       budgetOfficer: formData.budgetOfficer || budgetOfficerOptions[0],
       approver: formData.approver || approverOptions[0],
-      status: 'ยื่นเอกสาร', // Always initial status 'ยื่นเอกสาร'
+      docAuditStatus: formData.docAuditStatus || docAuditStatusOptions[0] || 'ยื่นเอกสาร',
+      status: (formData.status as DisbursementStatus) || statusOptions[0] || 'ยื่นเอกสาร',
       notes: formData.notes || '',
       returnDate: '',
       transferDate: ''
@@ -169,6 +186,38 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 required
               />
+            </div>
+
+            {/* สถานะการตรวจสอบเอกสาร */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                สถานะการตรวจสอบเอกสาร *
+              </label>
+              <select
+                value={formData.docAuditStatus || docAuditStatusOptions[0] || 'ยื่นเอกสาร'}
+                onChange={(e) => setFormData({ ...formData, docAuditStatus: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                {docAuditStatusOptions.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* สถานะการเบิกจ่าย */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                สถานะการเบิกจ่าย *
+              </label>
+              <select
+                value={formData.status || statusOptions[0] || 'ยื่นเอกสาร'}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as DisbursementStatus })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                {statusOptions.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
             </div>
 
           </div>

@@ -11,9 +11,10 @@ import { AdminAuthModal } from './components/AdminAuthModal';
 import { AuthModal } from './components/AuthModal';
 import { SystemManagement } from './components/SystemManagement';
 import { PermissionsManagement } from './components/PermissionsManagement';
+import { LoginHistoryManagement } from './components/LoginHistoryManagement';
 import { IdleTimeoutWarningModal } from './components/IdleTimeoutWarningModal';
 
-import { DisbursementItem, DisbursementStatus, MonthlySummary, CategorySummary, DepartmentSummary, UserProfile, FeatureFlags, DEFAULT_FEATURE_FLAGS, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS } from './types';
+import { DisbursementItem, DisbursementStatus, MonthlySummary, CategorySummary, DepartmentSummary, UserProfile, FeatureFlags, DEFAULT_FEATURE_FLAGS, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS, DEFAULT_DOC_AUDIT_STATUSES, DEFAULT_DISBURSEMENT_STATUSES } from './types';
 import { exportToExcel, exportToPdf } from './utils/exportUtils';
 import { 
   subscribeToDisbursements, 
@@ -86,6 +87,8 @@ export default function App() {
   ]);
   const [budgetOfficers, setBudgetOfficers] = useState<string[]>(DEFAULT_BUDGET_OFFICERS);
   const [approvers, setApprovers] = useState<string[]>(DEFAULT_APPROVERS);
+  const [docAuditStatuses, setDocAuditStatuses] = useState<string[]>(DEFAULT_DOC_AUDIT_STATUSES);
+  const [disbursementStatuses, setDisbursementStatuses] = useState<string[]>(DEFAULT_DISBURSEMENT_STATUSES);
 
   // Subscribe to Auth State, All Users List, Disbursements & Config
   useEffect(() => {
@@ -125,6 +128,12 @@ export default function App() {
       }
       if (cfg.approverList && cfg.approverList.length > 0) {
         setApprovers(cfg.approverList);
+      }
+      if (cfg.docAuditStatusList && cfg.docAuditStatusList.length > 0) {
+        setDocAuditStatuses(cfg.docAuditStatusList);
+      }
+      if (cfg.statusList && cfg.statusList.length > 0) {
+        setDisbursementStatuses(cfg.statusList);
       }
       if (cfg.featureFlags) {
         setFeatureFlags({ ...DEFAULT_FEATURE_FLAGS, ...cfg.featureFlags });
@@ -303,7 +312,7 @@ export default function App() {
     const approvedItems = rawItems.filter(d => d.status === 'อนุมัติ' || d.status === 'โอนเงินแล้ว');
     const approvedAmount = approvedItems.reduce((sum, d) => sum + (d.amount || 0), 0);
 
-    const pendingItems = rawItems.filter(d => d.status === 'ยื่นเอกสาร' || d.status === 'รอตรวจสอบเอกสาร');
+    const pendingItems = rawItems.filter(d => d.status === 'ยื่นเอกสาร' || d.status === 'รอตรวจสอบเอกสาร' || d.status === 'ตรวจสอบเอกสารเรียบร้อย');
     const pendingAmount = pendingItems.reduce((sum, d) => sum + (d.amount || 0), 0);
 
     const returnedItems = rawItems.filter(d => d.status === 'ส่งคืนเอกสารแก้ไข');
@@ -338,7 +347,7 @@ export default function App() {
         monthlyMap[key].count += 1;
         if (item.status === 'อนุมัติ' || item.status === 'โอนเงินแล้ว') {
           monthlyMap[key].approvedAmount += item.amount || 0;
-        } else if (item.status === 'ยื่นเอกสาร' || item.status === 'รอตรวจสอบเอกสาร') {
+        } else if (item.status === 'ยื่นเอกสาร' || item.status === 'รอตรวจสอบเอกสาร' || item.status === 'ตรวจสอบเอกสารเรียบร้อย') {
           monthlyMap[key].pendingAmount += item.amount || 0;
         } else if (item.status === 'ส่งคืนเอกสารแก้ไข') {
           monthlyMap[key].returnedAmount += item.amount || 0;
@@ -372,7 +381,7 @@ export default function App() {
         deptMap[dept].approvedAmount += item.amount || 0;
       } else if (item.status === 'ส่งคืนเอกสารแก้ไข') {
         deptMap[dept].returnedCount += 1;
-      } else if (item.status === 'ยื่นเอกสาร' || item.status === 'รอตรวจสอบเอกสาร') {
+      } else if (item.status === 'ยื่นเอกสาร' || item.status === 'รอตรวจสอบเอกสาร' || item.status === 'ตรวจสอบเอกสารเรียบร้อย') {
         deptMap[dept].pendingCount += 1;
       }
     });
@@ -519,7 +528,7 @@ export default function App() {
     try {
       let finalItem: DisbursementItem = { 
         ...newItem,
-        status: 'ยื่นเอกสาร'
+        status: newItem.status || 'ยื่นเอกสาร'
       };
       if (!finalItem.id) {
         const maxId = rawItems.reduce((max, item) => {
@@ -530,7 +539,7 @@ export default function App() {
       }
 
       await saveDisbursementDoc(finalItem);
-      showToast(`บันทึกคำขอเบิกจ่าย #${finalItem.id} เข้า Firestore สำเร็จ! (สถานะเริ่มต้น: ยื่นเอกสาร)`);
+      showToast(`บันทึกคำขอเบิกจ่าย #${finalItem.id} เข้า Firestore สำเร็จ! (สถานะ: ${finalItem.status})`);
     } catch (err) {
       console.error('Add request error:', err);
       showToast('บันทึกข้อมูลเข้า Firestore ล้มเหลว', 'error');
@@ -567,10 +576,15 @@ export default function App() {
   };
 
   // Quick Status Update in Firestore
-  const handleQuickStatusUpdate = async (id: string, newStatus: DisbursementStatus) => {
+  const handleQuickStatusUpdate = async (id: string, newStatus: DisbursementStatus, field: 'status' | 'docAuditStatus' = 'status') => {
     try {
-      await updateDisbursementDoc(id, { status: newStatus });
-      showToast(`ปรับสถานะ #${id} เป็น "${newStatus}" ใน Firestore เรียบร้อยแล้ว`);
+      if (field === 'docAuditStatus') {
+        await updateDisbursementDoc(id, { docAuditStatus: newStatus });
+        showToast(`ปรับสถานะการตรวจสอบเอกสาร #${id} เป็น "${newStatus}" เรียบร้อยแล้ว`);
+      } else {
+        await updateDisbursementDoc(id, { status: newStatus });
+        showToast(`ปรับสถานะคำขอเบิกจ่าย #${id} เป็น "${newStatus}" เรียบร้อยแล้ว`);
+      }
     } catch (err) {
       console.error('Status update error:', err);
       showToast('ไม่สามารถเปลี่ยนสถานะใน Firestore ได้', 'error');
@@ -667,6 +681,12 @@ export default function App() {
               activeSubTab={systemSubTab}
               onSelectSubTab={setSystemSubTab}
             />
+          ) : (activeTab === 'login-history' || activeTab === 'loginHistory') ? (
+            <LoginHistoryManagement
+              isAdmin={isAdmin || currentUserProfile?.role === 'ADMIN'}
+              departments={departments}
+              showToast={showToast}
+            />
           ) : activeTab === 'permissions' ? (
             <PermissionsManagement 
               isAdmin={isAdmin || currentUserProfile?.role === 'ADMIN'}
@@ -709,8 +729,11 @@ export default function App() {
                   monthOptions={monthOptions}
                   isAdmin={isAdmin}
                   onOpenAdminAuthModal={() => setIsAdminAuthModalOpen(true)}
+                  onOpenAddModal={handleAttemptAddModal}
                   categoryList={categories}
                   departmentList={departments}
+                  docAuditStatusList={docAuditStatuses}
+                  statusList={disbursementStatuses}
                   featureFlags={featureFlags}
                 />
               </div>
@@ -729,6 +752,8 @@ export default function App() {
         departmentList={departments}
         budgetOfficers={budgetOfficers}
         approvers={approvers}
+        docAuditStatusList={docAuditStatuses}
+        statusList={disbursementStatuses}
       />
 
       <EditRequestModal
@@ -740,6 +765,8 @@ export default function App() {
         departmentList={departments}
         budgetOfficers={budgetOfficers}
         approvers={approvers}
+        docAuditStatusList={docAuditStatuses}
+        statusList={disbursementStatuses}
       />
 
       <PrintVoucherModal

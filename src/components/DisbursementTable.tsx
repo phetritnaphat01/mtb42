@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { DisbursementItem, DisbursementStatus, FeatureFlags } from '../types';
+import { 
+  DisbursementItem, 
+  DisbursementStatus, 
+  FeatureFlags,
+  DEFAULT_DOC_AUDIT_STATUSES,
+  DEFAULT_DISBURSEMENT_STATUSES
+} from '../types';
 import { exportToExcel, exportToPdf } from '../utils/exportUtils';
 import { 
   Search, 
@@ -24,7 +30,9 @@ import {
   Minimize2,
   Maximize2,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  ChevronDown,
+  Plus
 } from 'lucide-react';
 
 interface DisbursementTableProps {
@@ -42,12 +50,15 @@ interface DisbursementTableProps {
   onEditItem: (item: DisbursementItem) => void;
   onDeleteItem: (id: string) => void;
   onPrintVoucher: (item: DisbursementItem) => void;
-  onQuickUpdateStatus: (id: string, newStatus: DisbursementStatus) => void;
+  onQuickUpdateStatus: (id: string, newStatus: DisbursementStatus, field?: 'status' | 'docAuditStatus') => void;
   monthOptions: { label: string; value: string }[];
   isAdmin?: boolean;
   onOpenAdminAuthModal?: () => void;
+  onOpenAddModal?: () => void;
   categoryList?: string[];
   departmentList?: string[];
+  docAuditStatusList?: string[];
+  statusList?: string[];
   featureFlags?: FeatureFlags;
 }
 
@@ -70,21 +81,28 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
   monthOptions,
   isAdmin = false,
   onOpenAdminAuthModal,
+  onOpenAddModal,
   categoryList = [],
   departmentList = [],
+  docAuditStatusList = [],
+  statusList = [],
   featureFlags
 }) => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Compute permissions based on user role and Admin feature flags
+  const canAdd = isAdmin
+    ? (featureFlags?.createDisbursementAdmin ?? true)
+    : (featureFlags?.createDisbursementUser ?? true);
+
   const canEdit = isAdmin
     ? (featureFlags?.editDisbursementAdmin ?? true)
-    : (featureFlags?.editDisbursementUser ?? false);
+    : (featureFlags?.editDisbursementUser ?? true);
 
   const canDelete = isAdmin
     ? (featureFlags?.deleteDisbursementAdmin ?? true)
-    : (featureFlags?.deleteDisbursementUser ?? false);
+    : (featureFlags?.deleteDisbursementUser ?? true);
 
   const canPrint = isAdmin
     ? (featureFlags?.printVoucherAdmin ?? true)
@@ -96,7 +114,65 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
 
   const canChangeStatus = isAdmin
     ? (featureFlags?.editDisbursementAdmin ?? true)
-    : (featureFlags?.editDisbursementUser ?? false);
+    : (featureFlags?.editDisbursementUser ?? true);
+
+  const renderInteractiveStatusBadge = (
+    status: string, 
+    itemId: string, 
+    field: 'status' | 'docAuditStatus' = 'status'
+  ) => {
+    const options = field === 'docAuditStatus'
+      ? (docAuditStatusList && docAuditStatusList.length > 0 ? docAuditStatusList : DEFAULT_DOC_AUDIT_STATUSES)
+      : (statusList && statusList.length > 0 ? statusList : DEFAULT_DISBURSEMENT_STATUSES);
+
+    const getBadgeColorClass = (st: string) => {
+      switch (st) {
+        case 'อนุมัติ':
+          return 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200';
+        case 'โอนเงินแล้ว':
+          return 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200';
+        case 'ตรวจสอบเอกสารเรียบร้อย':
+          return 'bg-indigo-100 text-indigo-800 border-indigo-300 hover:bg-indigo-200';
+        case 'รอตรวจสอบเอกสาร':
+          return 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200';
+        case 'ยื่นเอกสาร':
+          return 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200';
+        case 'ส่งคืนเอกสารแก้ไข':
+          return 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200';
+        default:
+          return 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200';
+      }
+    };
+
+    if (canChangeStatus) {
+      return (
+        <div className="relative inline-block">
+          <select
+            value={status}
+            onChange={(e) => onQuickUpdateStatus(itemId, e.target.value as DisbursementStatus, field)}
+            className={`text-xs font-bold px-3 py-1 rounded-full cursor-pointer border shadow-2xs transition-all appearance-none pr-6 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 ${getBadgeColorClass(status)}`}
+            title={`คลิกเพื่อเปลี่ยน${field === 'docAuditStatus' ? 'สถานะการตรวจสอบเอกสาร' : 'สถานะคำขอเบิกจ่าย'}`}
+          >
+            {options.map((st) => (
+              <option key={st} value={st}>{st}</option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+        </div>
+      );
+    } else {
+      return (
+        <button
+          type="button"
+          onClick={() => onOpenAdminAuthModal?.()}
+          className="cursor-pointer transition hover:opacity-80"
+          title="คลิกเพื่อเข้าสู่ระบบ/เปลี่ยนสถานะ"
+        >
+          {getStatusBadge(status)}
+        </button>
+      );
+    }
+  };
   
   // Custom Grid Line & Density State
   const [gridStyle, setGridStyle] = useState<'off' | 'light' | 'medium' | 'strong' | 'dashed'>('medium');
@@ -226,6 +302,13 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-600 mr-1.5"></span>
             รอตรวจสอบเอกสาร
+          </span>
+        );
+      case 'ตรวจสอบเอกสารเรียบร้อย':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 mr-1.5"></span>
+            ตรวจสอบเอกสารเรียบร้อย
           </span>
         );
       case 'ยื่นเอกสาร':
@@ -438,6 +521,17 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
               <span>ส่งออก PDF</span>
             </button>
 
+            {/* Add New Request Button */}
+            <button
+              onClick={onOpenAddModal}
+              disabled={!canAdd}
+              className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-md transition flex items-center gap-1.5 border border-blue-500 disabled:opacity-50 cursor-pointer"
+              title={canAdd ? "เพิ่มรายการคำขอเบิกจ่ายใหม่" : "ฟังก์ชั่นยื่นคำขอถูกปิดใช้งานโดย Admin"}
+            >
+              <Plus className="w-4 h-4" />
+              <span>เพิ่มข้อมูลคำขอ</span>
+            </button>
+
             <div className="h-10 px-3 bg-slate-100 rounded-lg border border-slate-200 flex items-center text-xs font-medium text-slate-600 shrink-0">
               แสดง <span className="font-bold text-slate-900 mx-1">{items.length}</span> รายการ
             </div>
@@ -529,12 +623,12 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
               className="w-full h-10 px-3 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm"
             >
               <option value="ALL">-- ทุกสถานะ --</option>
-              <option value="ยื่นเอกสาร">ยื่นเอกสาร</option>
-              <option value="รอตรวจสอบเอกสาร">รอตรวจสอบเอกสาร</option>
-              <option value="อนุมัติ">อนุมัติ</option>
-              <option value="ส่งคืนเอกสารแก้ไข">ส่งคืนเอกสารแก้ไข</option>
-              <option value="โอนเงินแล้ว">โอนเงินแล้ว</option>
-              <option value="ยกเลิก">ยกเลิก</option>
+              {Array.from(new Set([
+                ...(statusList && statusList.length > 0 ? statusList : DEFAULT_DISBURSEMENT_STATUSES),
+                ...(docAuditStatusList && docAuditStatusList.length > 0 ? docAuditStatusList : DEFAULT_DOC_AUDIT_STATUSES)
+              ])).map(st => (
+                <option key={st} value={st}>{st}</option>
+              ))}
             </select>
           </div>
 
@@ -555,6 +649,7 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
               <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>รายการ</th>
               <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap text-right`}>ยอดเงิน</th>
               <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>ฝ่ายงบประมาณ</th>
+              <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>สถานะการตรวจสอบเอกสาร</th>
               <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>ฝ่ายอนุมัติ</th>
               <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap text-center`}>สถานะ</th>
               <th className={`${getHeaderPadding()} ${getHeaderGridClass()} whitespace-nowrap`}>หมายเหตุ</th>
@@ -566,7 +661,7 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
           <tbody className="text-slate-800">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={13} className="py-12 text-center text-slate-400">
+                <td colSpan={14} className="py-12 text-center text-slate-400">
                   <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                   ไม่พบข้อมูลคำขอเบิกจ่ายงบประมาณตรงกับเงื่อนไขที่เลือก
                 </td>
@@ -619,37 +714,22 @@ export const DisbursementTable: React.FC<DisbursementTableProps> = ({
 
                   {/* 7. ฝ่ายงบประมาณ */}
                   <td className={`${getCellPadding()} ${getGridCellClass()} text-slate-800 font-medium whitespace-nowrap`}>
-                    {item.budgetOfficer || '-'}
+                    <div className="font-semibold text-slate-900">{item.budgetOfficer || '-'}</div>
                   </td>
 
-                  {/* 8. ฝ่ายอนุมัติ */}
+                  {/* 8. สถานะการตรวจสอบเอกสาร */}
+                  <td className={`${getCellPadding()} ${getGridCellClass()} whitespace-nowrap`}>
+                    {renderInteractiveStatusBadge(item.docAuditStatus || item.status, item.id, 'docAuditStatus')}
+                  </td>
+
+                  {/* 9. ฝ่ายอนุมัติ */}
                   <td className={`${getCellPadding()} ${getGridCellClass()} text-slate-800 font-medium whitespace-nowrap`}>
                     {item.approver || '-'}
                   </td>
 
-                  {/* 9. สถานะ */}
+                  {/* 10. สถานะ */}
                   <td className={`${getCellPadding()} ${getGridCellClass()} text-center whitespace-nowrap`}>
-                    {getStatusBadge(item.status)}
-                    <div className="mt-1">
-                      {canChangeStatus ? (
-                        <select
-                          value={item.status}
-                          onChange={(e) => onQuickUpdateStatus(item.id, e.target.value as DisbursementStatus)}
-                          className="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-600 hover:border-slate-400 transition"
-                        >
-                          <option value="ยื่นเอกสาร">ยื่นเอกสาร</option>
-                          <option value="รอตรวจสอบเอกสาร">รอตรวจสอบเอกสาร</option>
-                          <option value="อนุมัติ">อนุมัติ</option>
-                          <option value="ส่งคืนเอกสารแก้ไข">ส่งคืนเอกสารแก้ไข</option>
-                          <option value="โอนเงินแล้ว">โอนเงินแล้ว</option>
-                          <option value="ยกเลิก">ยกเลิก</option>
-                        </select>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 block" title="ฟังก์ชั่นเปลี่ยนสถานะถูกจำกัดหรือปิดใช้งาน">
-                          (อ่านอย่างเดียว)
-                        </span>
-                      )}
-                    </div>
+                    {renderInteractiveStatusBadge(item.status, item.id, 'status')}
                   </td>
 
                   {/* 10. หมายเหตุ */}

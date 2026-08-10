@@ -439,15 +439,20 @@ export const PermissionsManagement: React.FC<PermissionsManagementProps> = ({
                   return (
                     <tr key={u.uid} className="hover:bg-slate-50/80 transition">
                       <td className="p-3.5 pl-5 font-bold text-slate-900">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                        <div 
+                          onClick={() => handleOpenEditModal(u)}
+                          className="flex items-center gap-2.5 cursor-pointer group"
+                          title="คลิกเพื่อแก้ไขข้อมูลชื่อ ยศ สังกัด และสิทธิ์"
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition group-hover:scale-105 ${
                             u.role === 'ADMIN' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
                           }`}>
                             {u.displayName.charAt(0) || 'U'}
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span>{u.displayName}</span>
+                              <span className="group-hover:text-indigo-600 transition underline-offset-2 group-hover:underline">{u.displayName}</span>
+                              <Edit3 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition shrink-0" />
                               {isSelf && (
                                 <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.2 rounded">
                                   (บัญชีคุณ)

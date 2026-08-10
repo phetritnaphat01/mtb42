@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DisbursementItem, BudgetCategory, DisbursementStatus, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS } from '../types';
+import { 
+  DisbursementItem, 
+  BudgetCategory, 
+  DisbursementStatus, 
+  DEFAULT_BUDGET_CATEGORIES, 
+  DEFAULT_BUDGET_OFFICERS, 
+  DEFAULT_APPROVERS,
+  DEFAULT_DOC_AUDIT_STATUSES,
+  DEFAULT_DISBURSEMENT_STATUSES
+} from '../types';
 import { X, Save, Edit3 } from 'lucide-react';
 
 interface EditRequestModalProps {
@@ -11,6 +20,8 @@ interface EditRequestModalProps {
   departmentList?: string[];
   budgetOfficers?: string[];
   approvers?: string[];
+  docAuditStatusList?: string[];
+  statusList?: string[];
 }
 
 export const EditRequestModal: React.FC<EditRequestModalProps> = ({
@@ -21,7 +32,9 @@ export const EditRequestModal: React.FC<EditRequestModalProps> = ({
   categories,
   departmentList,
   budgetOfficers,
-  approvers
+  approvers,
+  docAuditStatusList = [],
+  statusList = []
 }) => {
   const [formData, setFormData] = useState<DisbursementItem | null>(null);
   const categoryOptions = categories && categories.length > 0 ? categories : DEFAULT_BUDGET_CATEGORIES;
@@ -35,6 +48,22 @@ export const EditRequestModal: React.FC<EditRequestModalProps> = ({
     'ฝกห.มทบ.42',
     'ร.5 พัน.1'
   ];
+
+  const docAuditStatusOpts = useMemo(() => {
+    const base = docAuditStatusList && docAuditStatusList.length > 0 ? docAuditStatusList : DEFAULT_DOC_AUDIT_STATUSES;
+    if (formData?.docAuditStatus && !base.includes(formData.docAuditStatus)) {
+      return [formData.docAuditStatus, ...base];
+    }
+    return base;
+  }, [docAuditStatusList, formData?.docAuditStatus]);
+
+  const statusOpts = useMemo(() => {
+    const base = statusList && statusList.length > 0 ? statusList : DEFAULT_DISBURSEMENT_STATUSES;
+    if (formData?.status && !base.includes(formData.status)) {
+      return [formData.status, ...base];
+    }
+    return base;
+  }, [statusList, formData?.status]);
 
   const budgetOfficerOpts = useMemo(() => {
     const base = budgetOfficers && budgetOfficers.length > 0 ? budgetOfficers : DEFAULT_BUDGET_OFFICERS;
@@ -54,7 +83,10 @@ export const EditRequestModal: React.FC<EditRequestModalProps> = ({
 
   useEffect(() => {
     if (item) {
-      setFormData({ ...item });
+      setFormData({ 
+        ...item,
+        docAuditStatus: item.docAuditStatus || item.status || 'ยื่นเอกสาร'
+      });
     }
   }, [item]);
 
@@ -161,22 +193,35 @@ export const EditRequestModal: React.FC<EditRequestModalProps> = ({
               />
             </div>
 
-            {/* สถานะ */}
+            {/* สถานะการตรวจสอบเอกสาร */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                สถานะการตรวจสอบเอกสาร *
+              </label>
+              <select
+                value={formData.docAuditStatus || docAuditStatusOpts[0] || 'ยื่นเอกสาร'}
+                onChange={(e) => setFormData({ ...formData, docAuditStatus: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-900"
+              >
+                {docAuditStatusOpts.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* สถานะการเบิกจ่าย */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 สถานะการเบิกจ่าย *
               </label>
               <select
-                value={formData.status}
+                value={formData.status || statusOpts[0] || 'ยื่นเอกสาร'}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as DisbursementStatus })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-900"
               >
-                <option value="ยื่นเอกสาร">ยื่นเอกสาร</option>
-                <option value="รอตรวจสอบเอกสาร">รอตรวจสอบเอกสาร</option>
-                <option value="อนุมัติ">อนุมัติ</option>
-                <option value="ส่งคืนเอกสารแก้ไข">ส่งคืนเอกสารแก้ไข</option>
-                <option value="โอนเงินแล้ว">โอนเงินแล้ว</option>
-                <option value="ยกเลิก">ยกเลิก</option>
+                {statusOpts.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
               </select>
             </div>
 

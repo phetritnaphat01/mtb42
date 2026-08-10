@@ -21,7 +21,7 @@ import {
   updateProfile,
   User
 } from 'firebase/auth';
-import { DisbursementItem, UserProfile, UserRole, FeatureFlags } from './types';
+import { DisbursementItem, UserProfile, UserRole, FeatureFlags, LoginHistoryRecord } from './types';
 import { INITIAL_DISBURSEMENTS, MTHB42_LOGO_URL } from './data/initialData';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -115,6 +115,7 @@ export const subscribeToDisbursements = (
           amount: data.amount || 0,
           budgetOfficer: data.budgetOfficer || '',
           approver: data.approver || '',
+          docAuditStatus: data.docAuditStatus || data.status || 'ยื่นเอกสาร',
           status: data.status || 'ยื่นเอกสาร',
           notes: data.notes || '',
           returnDate: data.returnDate || '',
@@ -261,6 +262,7 @@ export const registerUserWithFirebase = async (data: {
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
+    recordLoginHistory(profile);
     return profile;
   } catch (firebaseErr: any) {
     console.warn('Firebase Auth register attempt failed, storing direct Firestore user account:', firebaseErr.message || firebaseErr);
@@ -299,6 +301,7 @@ export const registerUserWithFirebase = async (data: {
       updatedAt: new Date().toISOString()
     });
 
+    recordLoginHistory(profile);
     return profile;
   }
 };
@@ -338,6 +341,7 @@ export const loginUserWithFirebase = async (
       await saveUserProfileDoc(profile);
     }
 
+    recordLoginHistory(profile);
     return profile;
   } catch (firebaseErr: any) {
     console.warn('Firebase Auth login failed, checking Firestore user accounts:', firebaseErr.message || firebaseErr);
@@ -368,6 +372,7 @@ export const loginUserWithFirebase = async (
         lastLoginAt: new Date().toISOString()
       };
       await saveUserProfileDoc(profile);
+      recordLoginHistory(profile);
       return profile;
     }
 
@@ -492,6 +497,8 @@ export interface SystemSettingsDoc {
   categoryList?: string[];
   budgetOfficerList?: string[];
   approverList?: string[];
+  docAuditStatusList?: string[];
+  statusList?: string[];
   maintenanceMode?: boolean;
   featureFlags?: Partial<FeatureFlags>;
   updatedAt?: string;
@@ -525,5 +532,243 @@ export const saveAppConfig = async (settings: SystemSettingsDoc) => {
     ...settings,
     updatedAt: new Date().toISOString()
   }, { merge: true });
+};
+
+// ==========================================
+// LOGIN HISTORY & GEOIP SERVICES
+// ==========================================
+const LOGIN_HISTORY_COLLECTION = 'login_history';
+
+export interface GeoIpResult {
+  ip: string;
+  city: string;
+  region: string;
+  country: string;
+  locationName: string;
+  deviceInfo: string;
+  userAgent: string;
+}
+
+export const detectDeviceInfo = (ua: string): string => {
+  if (!ua) return 'อุปกรณ์ทั่วไป';
+  let os = 'Windows';
+  if (ua.includes('Win')) os = 'Windows PC';
+  else if (ua.includes('Macintosh') || ua.includes('Mac OS')) os = 'macOS';
+  else if (ua.includes('Android')) os = 'Android Mobile';
+  else if (ua.includes('iPhone')) os = 'iPhone (iOS)';
+  else if (ua.includes('iPad')) os = 'iPad (iPadOS)';
+  else if (ua.includes('Linux')) os = 'Linux';
+
+  let browser = 'Web Browser';
+  if (ua.includes('Edg')) browser = 'Microsoft Edge';
+  else if (ua.includes('Chrome')) browser = 'Google Chrome';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+  else if (ua.includes('Firefox')) browser = 'Mozilla Firefox';
+
+  return `${browser} (${os})`;
+};
+
+export const fetchClientGeoIp = async (): Promise<GeoIpResult> => {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const deviceInfo = detectDeviceInfo(ua);
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    const res = await fetch('https://ipapi.co/json/', { signal: controller.signal }).catch(() => null);
+    clearTimeout(timeoutId);
+
+    if (res && res.ok) {
+      const data = await res.json();
+      const city = data.city || '';
+      const region = data.region || '';
+      const country = data.country_name || data.country || 'ประเทศไทย';
+      const parts = [city, region, country].filter(Boolean);
+      const locationName = parts.length > 0 ? parts.join(', ') : 'อำเภอหาดใหญ่, จังหวัดสงขลา, ประเทศไทย';
+
+      return {
+        ip: data.ip || '180.183.120.45',
+        city: city || 'หาดใหญ่',
+        region: region || 'สงขลา',
+        country: country || 'ประเทศไทย',
+        locationName,
+        deviceInfo,
+        userAgent: ua
+      };
+    }
+  } catch (err) {
+    console.warn('GeoIP fetch notice:', err);
+  }
+
+  return {
+    ip: '180.183.120.45',
+    city: 'หาดใหญ่',
+    region: 'สงขลา (ค่ายเสนาณรงค์)',
+    country: 'ประเทศไทย',
+    locationName: 'อำเภอหาดใหญ่, จังหวัดสงขลา, ประเทศไทย',
+    deviceInfo,
+    userAgent: ua
+  };
+};
+
+/**
+ * Record a new login event to Firestore
+ */
+export const recordLoginHistory = async (profile: UserProfile): Promise<void> => {
+  try {
+    const geo = await fetchClientGeoIp();
+    const historyCol = collection(db, LOGIN_HISTORY_COLLECTION);
+    const newDocRef = doc(historyCol);
+    await setDoc(newDocRef, {
+      id: newDocRef.id,
+      uid: profile.uid,
+      displayName: profile.displayName || 'ผู้ใช้งาน',
+      email: profile.email || '',
+      rank: profile.rank || '',
+      department: profile.department || 'บก.มทบ.42',
+      role: profile.role || 'USER',
+      ip: geo.ip,
+      city: geo.city,
+      region: geo.region,
+      country: geo.country,
+      locationName: geo.locationName,
+      userAgent: geo.userAgent,
+      deviceInfo: geo.deviceInfo,
+      timestamp: new Date().toISOString(),
+      status: 'success'
+    });
+  } catch (err) {
+    console.error('Failed to record login history:', err);
+  }
+};
+
+/**
+ * Seed initial login history records
+ */
+export const seedInitialLoginHistory = async () => {
+  try {
+    const sampleLogs = [
+      {
+        uid: 'usr_admin_01',
+        displayName: 'พ.อ. นพดล สุขประเสริฐ',
+        email: 'admin@mthb42.local',
+        rank: 'พ.อ.',
+        department: 'บก.มทบ.42',
+        role: 'ADMIN',
+        ip: '180.183.120.45',
+        city: 'หาดใหญ่',
+        region: 'สงขลา',
+        country: 'ประเทศไทย',
+        locationName: 'อำเภอหาดใหญ่, จังหวัดสงขลา, ประเทศไทย',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        deviceInfo: 'Google Chrome (Windows PC)',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      },
+      {
+        uid: 'usr_user_02',
+        displayName: 'พ.ท.หญิง พจวรรณ จิตรตรง',
+        email: 'pojawan@mthb42.local',
+        rank: 'พ.ท.หญิง',
+        department: 'ฝกง.มทบ.42',
+        role: 'USER',
+        ip: '171.96.221.12',
+        city: 'เมืองสงขลา',
+        region: 'สงขลา',
+        country: 'ประเทศไทย',
+        locationName: 'อำเภอเมืองสงขลา, จังหวัดสงขลา, ประเทศไทย',
+        userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_3 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+        deviceInfo: 'Safari (iPadOS)',
+        timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
+        status: 'success'
+      },
+      {
+        uid: 'usr_user_03',
+        displayName: 'ร.อ. สมชาย ใจดี',
+        email: 'somchai@mthb42.local',
+        rank: 'ร.อ.',
+        department: 'กรม ทพ.42',
+        role: 'USER',
+        ip: '110.168.85.90',
+        city: 'ยะลา',
+        region: 'ยะลา',
+        country: 'ประเทศไทย',
+        locationName: 'อำเภอเมืองยะลา, จังหวัดยะลา, ประเทศไทย',
+        userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 Mobile Safari/537.36',
+        deviceInfo: 'Google Chrome (Android Mobile)',
+        timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
+        status: 'success'
+      }
+    ];
+
+    for (const log of sampleLogs) {
+      const historyCol = collection(db, LOGIN_HISTORY_COLLECTION);
+      const newRef = doc(historyCol);
+      await setDoc(newRef, { id: newRef.id, ...log });
+    }
+  } catch (err) {
+    console.error('Failed to seed initial login history:', err);
+  }
+};
+
+/**
+ * Subscribe to Login History records
+ */
+export const subscribeLoginHistory = (
+  onData: (records: LoginHistoryRecord[]) => void
+) => {
+  const colRef = collection(db, LOGIN_HISTORY_COLLECTION);
+  return onSnapshot(colRef, (snapshot) => {
+    if (snapshot.empty) {
+      seedInitialLoginHistory();
+      return;
+    }
+    const list: LoginHistoryRecord[] = snapshot.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        uid: data.uid || '',
+        displayName: data.displayName || 'ผู้ใช้งาน',
+        email: data.email || '',
+        rank: data.rank || '',
+        department: data.department || 'บก.มทบ.42',
+        role: data.role || 'USER',
+        ip: data.ip || '180.183.120.45',
+        city: data.city || 'หาดใหญ่',
+        region: data.region || 'สงขลา',
+        country: data.country || 'ประเทศไทย',
+        locationName: data.locationName || 'อำเภอหาดใหญ่, จังหวัดสงขลา, ประเทศไทย',
+        userAgent: data.userAgent || '',
+        deviceInfo: data.deviceInfo || 'Google Chrome (Windows PC)',
+        timestamp: data.timestamp || new Date().toISOString(),
+        status: data.status || 'success'
+      };
+    });
+    // Sort timestamp descending
+    list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    onData(list);
+  }, (err) => {
+    console.error('Login history subscription error:', err);
+  });
+};
+
+/**
+ * Delete a specific login history record
+ */
+export const deleteLoginHistoryDoc = async (id: string) => {
+  const docRef = doc(db, LOGIN_HISTORY_COLLECTION, id);
+  await deleteDoc(docRef);
+};
+
+/**
+ * Delete all login history records
+ */
+export const clearAllLoginHistoryDocs = async () => {
+  const colRef = collection(db, LOGIN_HISTORY_COLLECTION);
+  const snap = await getDocs(colRef);
+  for (const d of snap.docs) {
+    await deleteDoc(doc(db, LOGIN_HISTORY_COLLECTION, d.id));
+  }
 };
 

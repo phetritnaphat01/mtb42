@@ -38,14 +38,19 @@ export const exportToExcel = (items: DisbursementItem[], customFileName?: string
       'รายการเบิกจ่าย',
       'ประเภทงบประมาณ',
       'จำนวนเงิน (บาท)',
-      'หัวหน้างบประมาณ',
-      'นายทหารเบิกจ่าย',
+      'ฝ่ายงบประมาณ',
+      'สถานะการตรวจสอบเอกสาร',
+      'นายทหารเบิกจ่าย (ฝ่ายอนุมัติ)',
       'สถานะการเบิกจ่าย',
       'หมายเหตุ / วันที่โอน/ส่งคืน'
     ],
     ...items.map((item, index) => {
       const execDate = item.status === 'โอนเงินแล้ว' && item.transferDate ? `(โอน: ${item.transferDate})` :
                       item.status === 'ส่งคืนเอกสารแก้ไข' && item.returnDate ? `(ส่งคืน: ${item.returnDate})` : '';
+      const docAuditStatus = item.status === 'ตรวจสอบเอกสารเรียบร้อย' || item.status === 'อนุมัติ' || item.status === 'โอนเงินแล้ว' ? 'ตรวจสอบเอกสารเรียบร้อย' :
+                             item.status === 'รอตรวจสอบเอกสาร' ? 'รอตรวจสอบเอกสาร' :
+                             item.status === 'ยื่นเอกสาร' ? 'ยื่นเอกสาร' :
+                             item.status === 'ส่งคืนเอกสารแก้ไข' ? 'ส่งคืนเอกสารแก้ไข' : item.status;
       return [
         index + 1,
         item.id || '-',
@@ -56,6 +61,7 @@ export const exportToExcel = (items: DisbursementItem[], customFileName?: string
         item.category || '-',
         item.amount || 0,
         item.budgetOfficer || '-',
+        docAuditStatus,
         item.approver || '-',
         item.status || '-',
         `${item.notes || ''} ${execDate}`.trim()
@@ -91,8 +97,9 @@ export const exportToExcel = (items: DisbursementItem[], customFileName?: string
     { wch: 35 }, // รายการ
     { wch: 30 }, // ประเภทงบประมาณ
     { wch: 18 }, // จำนวนเงิน
-    { wch: 20 }, // หัวหน้างบประมาณ
-    { wch: 20 }, // นายทหารเบิกจ่าย
+    { wch: 20 }, // ฝ่ายงบประมาณ
+    { wch: 24 }, // สถานะการตรวจสอบเอกสาร
+    { wch: 22 }, // นายทหารเบิกจ่าย
     { wch: 20 }, // สถานะ
     { wch: 30 }, // หมายเหตุ
   ];
@@ -194,6 +201,7 @@ export const exportToPdf = async (items: DisbursementItem[], customTitle?: strin
                   item.status === 'โอนเงินแล้ว' ? 'background: #dcfce7; color: #166534;' :
                   item.status === 'ส่งคืนเอกสารแก้ไข' ? 'background: #ffe4e6; color: #9f1239;' :
                   item.status === 'รอตรวจสอบเอกสาร' ? 'background: #fef3c7; color: #92400e;' :
+                  item.status === 'ตรวจสอบเอกสารเรียบร้อย' ? 'background: #e0e7ff; color: #3730a3;' :
                   'background: #e2e8f0; color: #334155;'
                 }">
                   ${item.status}

@@ -22,7 +22,8 @@ import {
   Building2,
   Users,
   Key,
-  Database
+  Database,
+  History
 } from 'lucide-react';
 import { MTHB42_LOGO_URL, MTHB42_EMBLEM_DATA_URL } from '../data/initialData';
 import { UserProfile } from '../types';
@@ -79,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'table', label: 'รายการฎีกาเบิกจ่าย', icon: FileText },
     { id: 'charts', label: 'กราฟจำแนกงบประมาณ', icon: BarChart3 },
     { id: 'system', label: 'จัดการระบบ', icon: Settings },
+    { id: 'login-history', label: 'ประวัติการเข้าสู่ระบบ', icon: History },
     { id: 'permissions', label: 'จัดการสิทธิ์', icon: ShieldCheck },
   ];
 
@@ -249,18 +251,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                  isActive 
-                    ? 'bg-amber-500/15 text-amber-300 font-semibold border border-amber-400/30 shadow-sm' 
-                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
-              </button>
+              <React.Fragment key={item.id}>
+                <button
+                  onClick={() => {
+                    handleNavClick(item.id);
+                    if (item.id === 'system') {
+                      setIsSystemExpanded(!isSystemExpanded);
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                    isActive 
+                      ? 'bg-amber-500/15 text-amber-300 font-semibold border border-amber-400/30 shadow-sm' 
+                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                  {item.id === 'system' && (
+                    <span className="text-slate-400 hover:text-white transition p-0.5">
+                      {isSystemExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    </span>
+                  )}
+                </button>
+
+                {item.id === 'system' && isSystemExpanded && (
+                  <div className="pl-5 space-y-1 my-1 border-l border-amber-500/30 ml-4">
+                    {systemSubItems.map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = activeTab === 'system' && activeSystemSubTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => {
+                            setActiveTab('system');
+                            if (onSelectSystemSubTab) onSelectSystemSubTab(sub.id);
+                            onCloseMobile();
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                            isSubActive
+                              ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-400/30'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                          }`}
+                        >
+                          <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-amber-400' : 'text-slate-500'}`} />
+                          <span className="truncate">{sub.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
 

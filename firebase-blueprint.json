@@ -42,6 +42,26 @@
         "createdAt": { "type": "string", "description": "Registration ISO timestamp" },
         "lastLoginAt": { "type": "string", "description": "Last login ISO timestamp" }
       }
+    },
+    "login_history": {
+      "title": "Login History Logs",
+      "description": "User access logs with IP, location, and user-agent string",
+      "fields": {
+        "uid": { "type": "string", "description": "User ID" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "email": { "type": "string", "description": "User email address" },
+        "department": { "type": "string", "description": "Department name" },
+        "role": { "type": "string", "description": "User role" },
+        "ip": { "type": "string", "description": "Client IP address" },
+        "city": { "type": "string", "description": "City name" },
+        "region": { "type": "string", "description": "Region/province" },
+        "country": { "type": "string", "description": "Country name" },
+        "locationName": { "type": "string", "description": "Full location name" },
+        "userAgent": { "type": "string", "description": "Browser user agent string" },
+        "deviceInfo": { "type": "string", "description": "Parsed browser and OS summary" },
+        "timestamp": { "type": "string", "description": "Login ISO timestamp" },
+        "status": { "type": "string", "description": "Login status (success/failed)" }
+      }
     }
   }
 }

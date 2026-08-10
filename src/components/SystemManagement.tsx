@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { saveLogoToFirebase, saveAppConfig, subscribeAppConfig, SystemSettingsDoc, seedInitialData } from '../firebase';
 import { MTHB42_LOGO_URL } from '../data/initialData';
-import { UserProfile, DisbursementItem, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS } from '../types';
+import { UserProfile, DisbursementItem, DEFAULT_BUDGET_CATEGORIES, DEFAULT_BUDGET_OFFICERS, DEFAULT_APPROVERS, DEFAULT_DOC_AUDIT_STATUSES, DEFAULT_DISBURSEMENT_STATUSES } from '../types';
 
 interface SystemManagementProps {
   isAdmin: boolean;
@@ -97,10 +97,14 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
     'ร.5 พัน.1'
   ]);
   const [newDeptInput, setNewDeptInput] = useState('');
+  const [editingDeptIndex, setEditingDeptIndex] = useState<number | null>(null);
+  const [editingDeptText, setEditingDeptText] = useState('');
 
   // Category Management State
   const [categories, setCategories] = useState<string[]>(DEFAULT_BUDGET_CATEGORIES);
   const [newCatInput, setNewCatInput] = useState('');
+  const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
+  const [editingCatText, setEditingCatText] = useState('');
 
   // Budget Officer Management State
   const [budgetOfficers, setBudgetOfficers] = useState<string[]>(DEFAULT_BUDGET_OFFICERS);
@@ -113,6 +117,18 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
   const [newApproverInput, setNewApproverInput] = useState('');
   const [editingApproverIndex, setEditingApproverIndex] = useState<number | null>(null);
   const [editingApproverText, setEditingApproverText] = useState('');
+
+  // Document Audit Status Management State
+  const [docAuditStatuses, setDocAuditStatuses] = useState<string[]>(DEFAULT_DOC_AUDIT_STATUSES);
+  const [newDocAuditStatusInput, setNewDocAuditStatusInput] = useState('');
+  const [editingDocAuditStatusIndex, setEditingDocAuditStatusIndex] = useState<number | null>(null);
+  const [editingDocAuditStatusText, setEditingDocAuditStatusText] = useState('');
+
+  // Disbursement Status Management State
+  const [disbursementStatuses, setDisbursementStatuses] = useState<string[]>(DEFAULT_DISBURSEMENT_STATUSES);
+  const [newDisbursementStatusInput, setNewDisbursementStatusInput] = useState('');
+  const [editingDisbursementStatusIndex, setEditingDisbursementStatusIndex] = useState<number | null>(null);
+  const [editingDisbursementStatusText, setEditingDisbursementStatusText] = useState('');
 
   // Firestore System Config
   const [systemConfig, setSystemConfig] = useState<SystemSettingsDoc>({});
@@ -132,6 +148,12 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
       }
       if (cfg.approverList && cfg.approverList.length > 0) {
         setApprovers(cfg.approverList);
+      }
+      if (cfg.docAuditStatusList && cfg.docAuditStatusList.length > 0) {
+        setDocAuditStatuses(cfg.docAuditStatusList);
+      }
+      if (cfg.statusList && cfg.statusList.length > 0) {
+        setDisbursementStatuses(cfg.statusList);
       }
     });
     return () => unsub();
@@ -226,6 +248,25 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
     }
   };
 
+  const handleSaveEditDepartment = async (index: number) => {
+    const trimmed = editingDeptText.trim();
+    if (!trimmed) {
+      showToast('กรุณาระบุชื่อหน่วยงาน', 'error');
+      return;
+    }
+    const updated = [...departments];
+    updated[index] = trimmed;
+    setDepartments(updated);
+    setEditingDeptIndex(null);
+    setEditingDeptText('');
+    try {
+      await saveAppConfig({ ...systemConfig, departmentList: updated });
+      showToast('อัปเดตชื่อหน่วยงานเรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      showToast('ไม่สามารถอัปเดตชื่อหน่วยงานได้', 'error');
+    }
+  };
+
   const handleRemoveDepartment = async (deptName: string) => {
     if (departments.length <= 1) {
       showToast('ต้องมีหน่วยงานในระบบอย่างน้อย 1 หน่วยงาน', 'error');
@@ -272,6 +313,25 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
       showToast(`ลบประเภทรายการงบประมาณ "${catName}" เรียบร้อย`, 'success');
     } catch (err) {
       showToast('ไม่สามารถลบประเภทรายการงบประมาณได้', 'error');
+    }
+  };
+
+  const handleSaveEditCategory = async (index: number) => {
+    const trimmed = editingCatText.trim();
+    if (!trimmed) {
+      showToast('กรุณาระบุชื่อประเภทงบประมาณ', 'error');
+      return;
+    }
+    const updated = [...categories];
+    updated[index] = trimmed;
+    setCategories(updated);
+    setEditingCatIndex(null);
+    setEditingCatText('');
+    try {
+      await saveAppConfig({ ...systemConfig, categoryList: updated });
+      showToast('อัปเดตประเภทรายการงบประมาณเรียบร้อยแล้ว', 'success');
+    } catch (err) {
+      showToast('ไม่สามารถอัปเดตประเภทรายการงบประมาณได้', 'error');
     }
   };
 
@@ -381,6 +441,112 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
     }
   };
 
+  // Document Audit Status Management Handlers
+  const handleAddDocAuditStatus = async () => {
+    const trimmed = newDocAuditStatusInput.trim();
+    if (!trimmed) return;
+    if (docAuditStatuses.includes(trimmed)) {
+      showToast('มีสถานะการตรวจสอบเอกสารนี้อยู่ในระบบแล้ว', 'error');
+      return;
+    }
+    const updated = [...docAuditStatuses, trimmed];
+    setDocAuditStatuses(updated);
+    setNewDocAuditStatusInput('');
+    try {
+      await saveAppConfig({ ...systemConfig, docAuditStatusList: updated });
+      showToast(`เพิ่มสถานะ "${trimmed}" ในรายการตรวจสอบเอกสารเรียบร้อย`, 'success');
+    } catch (err) {
+      showToast('ไม่สามารถบันทึกสถานะได้', 'error');
+    }
+  };
+
+  const handleSaveEditDocAuditStatus = async (index: number) => {
+    const trimmed = editingDocAuditStatusText.trim();
+    if (!trimmed) {
+      showToast('กรุณาระบุชื่อสถานะ', 'error');
+      return;
+    }
+    const updated = [...docAuditStatuses];
+    updated[index] = trimmed;
+    setDocAuditStatuses(updated);
+    setEditingDocAuditStatusIndex(null);
+    setEditingDocAuditStatusText('');
+    try {
+      await saveAppConfig({ ...systemConfig, docAuditStatusList: updated });
+      showToast('อัปเดตชื่อสถานะการตรวจสอบเอกสารเรียบร้อย', 'success');
+    } catch (err) {
+      showToast('ไม่สามารถอัปเดตสถานะได้', 'error');
+    }
+  };
+
+  const handleDeleteDocAuditStatus = async (statusToDelete: string) => {
+    if (docAuditStatuses.length <= 1) {
+      showToast('ต้องมีสถานะอย่างน้อย 1 รายการในระบบ', 'error');
+      return;
+    }
+    const updated = docAuditStatuses.filter((s) => s !== statusToDelete);
+    setDocAuditStatuses(updated);
+    try {
+      await saveAppConfig({ ...systemConfig, docAuditStatusList: updated });
+      showToast(`ลบสถานะ "${statusToDelete}" เรียบร้อย`, 'success');
+    } catch (err) {
+      showToast('ไม่สามารถลบสถานะได้', 'error');
+    }
+  };
+
+  // Disbursement Status Management Handlers
+  const handleAddDisbursementStatus = async () => {
+    const trimmed = newDisbursementStatusInput.trim();
+    if (!trimmed) return;
+    if (disbursementStatuses.includes(trimmed)) {
+      showToast('มีสถานะการเบิกจ่ายนี้อยู่ในระบบแล้ว', 'error');
+      return;
+    }
+    const updated = [...disbursementStatuses, trimmed];
+    setDisbursementStatuses(updated);
+    setNewDisbursementStatusInput('');
+    try {
+      await saveAppConfig({ ...systemConfig, statusList: updated });
+      showToast(`เพิ่มสถานะ "${trimmed}" ในรายการเบิกจ่ายเรียบร้อย`, 'success');
+    } catch (err) {
+      showToast('ไม่สามารถบันทึกสถานะได้', 'error');
+    }
+  };
+
+  const handleSaveEditDisbursementStatus = async (index: number) => {
+    const trimmed = editingDisbursementStatusText.trim();
+    if (!trimmed) {
+      showToast('กรุณาระบุชื่อสถานะ', 'error');
+      return;
+    }
+    const updated = [...disbursementStatuses];
+    updated[index] = trimmed;
+    setDisbursementStatuses(updated);
+    setEditingDisbursementStatusIndex(null);
+    setEditingDisbursementStatusText('');
+    try {
+      await saveAppConfig({ ...systemConfig, statusList: updated });
+      showToast('อัปเดตชื่อสถานะการเบิกจ่ายเรียบร้อย', 'success');
+    } catch (err) {
+      showToast('ไม่สามารถอัปเดตสถานะได้', 'error');
+    }
+  };
+
+  const handleDeleteDisbursementStatus = async (statusToDelete: string) => {
+    if (disbursementStatuses.length <= 1) {
+      showToast('ต้องมีสถานะอย่างน้อย 1 รายการในระบบ', 'error');
+      return;
+    }
+    const updated = disbursementStatuses.filter((s) => s !== statusToDelete);
+    setDisbursementStatuses(updated);
+    try {
+      await saveAppConfig({ ...systemConfig, statusList: updated });
+      showToast(`ลบสถานะ "${statusToDelete}" เรียบร้อย`, 'success');
+    } catch (err) {
+      showToast('ไม่สามารถลบสถานะได้', 'error');
+    }
+  };
+
   // Re-seed Initial Data
   const handleSeedData = async () => {
     setIsResettingData(true);
@@ -441,91 +607,94 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
       )}
 
       {/* Sub-menu Navigation Bar for System Management */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-2 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setSubTab('logo')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-            subTab === 'logo'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
-          }`}
-        >
-          <ImageIcon className="w-4 h-4" />
-          <span>ตราประทับ / โลโก้ระบบ</span>
-        </button>
+      <div className="bg-slate-900/90 p-2 rounded-2xl border border-slate-800 shadow-md">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin scrollbar-thumb-slate-700">
+          <button
+            type="button"
+            onClick={() => setSubTab('logo')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer ${
+              subTab === 'logo'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
+            <ImageIcon className="w-4 h-4" />
+            <span>ตราประทับ / โลโก้</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSubTab('units')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-            subTab === 'units'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>หน่วยงาน & รายการงบ</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('units')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer ${
+              subTab === 'units'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>หน่วยงาน & รายการงบ</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSubTab('officers')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-            subTab === 'officers'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>เจ้าหน้าที่ & นายทหาร</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('officers')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer ${
+              subTab === 'officers'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>เจ้าหน้าที่ & นายทหาร</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSubTab('security')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-            subTab === 'security'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
-          }`}
-        >
-          <Key className="w-4 h-4" />
-          <span>รหัสผ่าน & ความปลอดภัย</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('security')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer ${
+              subTab === 'security'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
+            <Key className="w-4 h-4" />
+            <span>รหัสผ่าน & ความปลอดภัย</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSubTab('database')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-            subTab === 'database'
-              ? 'bg-purple-600 text-white shadow-sm'
-              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>สถานะระบบ & ฐานข้อมูล</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('database')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer ${
+              subTab === 'database'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span>สถานะระบบ & ฐานข้อมูล</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSubTab('all')}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 sm:ml-auto ${
-            subTab === 'all'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/80'
-          }`}
-        >
-          <Settings className="w-3.5 h-3.5" />
-          <span>แสดงทั้งหมด</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('all')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 sm:ml-auto cursor-pointer ${
+              subTab === 'all'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+            }`}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>แสดงทั้งหมด</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Settings Grid */}
-      <div className={subTab === 'all' ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "space-y-6"}>
+      <div className={subTab === 'all' ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : subTab === 'officers' ? "space-y-6" : "grid grid-cols-1 lg:grid-cols-2 gap-6"}>
 
         {/* 1. Logo Management */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+        {(subTab === 'logo' || subTab === 'all') && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
@@ -591,7 +760,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                   type="button"
                   onClick={() => handleSaveLogo(logoInputUrl)}
                   disabled={!isAdmin || !logoInputUrl.trim() || isSavingLogo}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>บันทึก</span>
@@ -603,15 +772,17 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
               type="button"
               onClick={() => handleSaveLogo(MTHB42_LOGO_URL)}
               disabled={!isAdmin || isSavingLogo}
-              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>คืนค่าโลโก้เริ่มต้น (ตรา มทบ.๔๒)</span>
             </button>
           </div>
         </div>
+        )}
 
         {/* 2. Admin PIN Management */}
+        {(subTab === 'security' || subTab === 'all') && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
@@ -636,7 +807,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
               <button
                 type="button"
                 onClick={() => setShowCurrentPin(!showCurrentPin)}
-                className="p-1.5 bg-white rounded-lg border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition"
+                className="p-1.5 bg-white rounded-lg border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
               >
                 {showCurrentPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -675,7 +846,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowNewPin(!showNewPin)}
-                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     {showNewPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
@@ -701,15 +872,17 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
             <button
               type="submit"
               disabled={!isAdmin}
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-md"
+              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>บันทึกรหัส Admin PIN ใหม่</span>
             </button>
           </form>
         </div>
+        )}
 
         {/* 2.5 Auto Logout Idle Security Card */}
+        {(subTab === 'security' || subTab === 'all') && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
@@ -743,7 +916,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                         showToast(mins > 0 ? `ตั้งเวลาล็อกเอาท์อัตโนมัติเมื่อไม่ใช้งานเป็น ${mins} นาที` : 'ปิดการทำงานตัดการเชื่อมต่ออัตโนมัติเรียบร้อย', 'success');
                       }
                     }}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                       isActive 
                         ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-sm' 
                         : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
@@ -756,8 +929,10 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
             </div>
           </div>
         </div>
+        )}
 
         {/* 3. Department / Military Unit List */}
+        {(subTab === 'units' || subTab === 'all') && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
@@ -787,7 +962,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
               type="button"
               onClick={handleAddDepartment}
               disabled={!isAdmin || !newDeptInput.trim()}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>เพิ่ม</span>
@@ -800,26 +975,87 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                 key={idx}
                 className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-xs text-slate-800 font-semibold transition"
               >
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                  <span>{dept}</span>
-                </div>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveDepartment(dept)}
-                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                    title="ลบหน่วยงานนี้"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                {editingDeptIndex === idx ? (
+                  <div className="flex items-center gap-1.5 w-full">
+                    <input
+                      type="text"
+                      value={editingDeptText}
+                      onChange={(e) => setEditingDeptText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveEditDepartment(idx);
+                        if (e.key === 'Escape') {
+                          setEditingDeptIndex(null);
+                          setEditingDeptText('');
+                        }
+                      }}
+                      className="min-w-0 flex-1 px-2.5 py-1 bg-white border border-blue-400 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveEditDepartment(idx)}
+                      className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shrink-0 cursor-pointer"
+                      title="บันทึก"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingDeptIndex(null);
+                        setEditingDeptText('');
+                      }}
+                      className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md shrink-0 cursor-pointer"
+                      title="ยกเลิก"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div 
+                      onClick={() => {
+                        setEditingDeptIndex(idx);
+                        setEditingDeptText(dept);
+                      }}
+                      className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer group py-0.5"
+                      title="คลิกเพื่อแก้ไขชื่อหน่วยงาน"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                      <span className="truncate group-hover:text-blue-600 transition">{dept}</span>
+                      <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition shrink-0 ml-1" />
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingDeptIndex(idx);
+                          setEditingDeptText(dept);
+                        }}
+                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                        title="แก้ไขชื่อหน่วยงาน"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDepartment(dept)}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                        title="ลบหน่วยงานนี้"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             ))}
           </div>
         </div>
+        )}
 
         {/* 3.5 Budget Category List Management */}
+        {(subTab === 'units' || subTab === 'all') && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
@@ -849,7 +1085,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
               type="button"
               onClick={handleAddCategory}
               disabled={!isAdmin || !newCatInput.trim()}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>เพิ่มประเภท</span>
@@ -862,26 +1098,340 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                 key={idx}
                 className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-xs text-slate-800 font-semibold transition"
               >
-                <div className="flex items-center gap-2 min-w-0 pr-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                  <span className="truncate">{cat}</span>
-                </div>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCategory(cat)}
-                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0"
-                    title="ลบประเภทงบประมาณนี้"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                {editingCatIndex === idx ? (
+                  <div className="flex items-center gap-1.5 w-full">
+                    <input
+                      type="text"
+                      value={editingCatText}
+                      onChange={(e) => setEditingCatText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveEditCategory(idx);
+                        if (e.key === 'Escape') {
+                          setEditingCatIndex(null);
+                          setEditingCatText('');
+                        }
+                      }}
+                      className="min-w-0 flex-1 px-2.5 py-1 bg-white border border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveEditCategory(idx)}
+                      className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shrink-0 cursor-pointer"
+                      title="บันทึก"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCatIndex(null);
+                        setEditingCatText('');
+                      }}
+                      className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md shrink-0 cursor-pointer"
+                      title="ยกเลิก"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div 
+                      onClick={() => {
+                        setEditingCatIndex(idx);
+                        setEditingCatText(cat);
+                      }}
+                      className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer group py-0.5"
+                      title="คลิกเพื่อแก้ไขชื่อประเภท"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                      <span className="truncate group-hover:text-emerald-600 transition">{cat}</span>
+                      <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition shrink-0 ml-1" />
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCatIndex(idx);
+                          setEditingCatText(cat);
+                        }}
+                        className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                        title="แก้ไขชื่อประเภท"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCategory(cat)}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0 cursor-pointer"
+                        title="ลบประเภทงบประมาณนี้"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             ))}
           </div>
         </div>
+        )}
+
+        {/* Status Management Section */}
+        {(subTab === 'statuses' || subTab === 'all') && (
+        <>
+          {/* Card 1: Doc Audit Statuses */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">หัวข้อสถานะการตรวจสอบเอกสาร</h3>
+                  <p className="text-[11px] text-slate-500">จัดการตัวเลือกสถานะการตรวจสอบเอกสาร (เพิ่ม/แก้ไข/ลบ)</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                {docAuditStatuses.length} สถานะ
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input 
+                type="text"
+                value={newDocAuditStatusInput}
+                onChange={(e) => setNewDocAuditStatusInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddDocAuditStatus();
+                }}
+                placeholder="พิมพ์ชื่อสถานะตรวจสอบเอกสารใหม่..."
+                className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white"
+                disabled={!isAdmin}
+              />
+              <button
+                type="button"
+                onClick={handleAddDocAuditStatus}
+                disabled={!isAdmin || !newDocAuditStatusInput.trim()}
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>เพิ่มสถานะ</span>
+              </button>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1 pt-1">
+              {docAuditStatuses.map((st, idx) => (
+                <div 
+                  key={idx}
+                  className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-xs text-slate-800 font-semibold transition"
+                >
+                  {editingDocAuditStatusIndex === idx ? (
+                    <div className="flex items-center gap-1.5 w-full">
+                      <input
+                        type="text"
+                        value={editingDocAuditStatusText}
+                        onChange={(e) => setEditingDocAuditStatusText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEditDocAuditStatus(idx);
+                          if (e.key === 'Escape') {
+                            setEditingDocAuditStatusIndex(null);
+                            setEditingDocAuditStatusText('');
+                          }
+                        }}
+                        className="min-w-0 flex-1 px-2.5 py-1 bg-white border border-amber-400 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSaveEditDocAuditStatus(idx)}
+                        className="p-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md shrink-0 cursor-pointer"
+                        title="บันทึก"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingDocAuditStatusIndex(null);
+                          setEditingDocAuditStatusText('');
+                        }}
+                        className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md shrink-0 cursor-pointer"
+                        title="ยกเลิก"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div 
+                        onClick={() => {
+                          setEditingDocAuditStatusIndex(idx);
+                          setEditingDocAuditStatusText(st);
+                        }}
+                        className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer group py-0.5"
+                        title="คลิกเพื่อแก้ไขชื่อสถานะ"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                        <span className="truncate group-hover:text-amber-700 transition">{st}</span>
+                        <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition shrink-0 ml-1" />
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingDocAuditStatusIndex(idx);
+                            setEditingDocAuditStatusText(st);
+                          }}
+                          className="p-1 text-slate-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                          title="แก้ไขชื่อสถานะ"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDocAuditStatus(st)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0 cursor-pointer"
+                          title="ลบสถานะนี้"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card 2: Disbursement Statuses */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-100 text-blue-800 rounded-xl">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">หัวข้อสถานะการเบิกจ่าย</h3>
+                  <p className="text-[11px] text-slate-500">จัดการตัวเลือกสถานะการเบิกจ่าย (เพิ่ม/แก้ไข/ลบ)</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-blue-800 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                {disbursementStatuses.length} สถานะ
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input 
+                type="text"
+                value={newDisbursementStatusInput}
+                onChange={(e) => setNewDisbursementStatusInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddDisbursementStatus();
+                }}
+                placeholder="พิมพ์ชื่อสถานะการเบิกจ่ายใหม่..."
+                className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                disabled={!isAdmin}
+              />
+              <button
+                type="button"
+                onClick={handleAddDisbursementStatus}
+                disabled={!isAdmin || !newDisbursementStatusInput.trim()}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>เพิ่มสถานะ</span>
+              </button>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1 pt-1">
+              {disbursementStatuses.map((st, idx) => (
+                <div 
+                  key={idx}
+                  className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-xs text-slate-800 font-semibold transition"
+                >
+                  {editingDisbursementStatusIndex === idx ? (
+                    <div className="flex items-center gap-1.5 w-full">
+                      <input
+                        type="text"
+                        value={editingDisbursementStatusText}
+                        onChange={(e) => setEditingDisbursementStatusText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEditDisbursementStatus(idx);
+                          if (e.key === 'Escape') {
+                            setEditingDisbursementStatusIndex(null);
+                            setEditingDisbursementStatusText('');
+                          }
+                        }}
+                        className="min-w-0 flex-1 px-2.5 py-1 bg-white border border-blue-400 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSaveEditDisbursementStatus(idx)}
+                        className="p-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md shrink-0 cursor-pointer"
+                        title="บันทึก"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingDisbursementStatusIndex(null);
+                          setEditingDisbursementStatusText('');
+                        }}
+                        className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md shrink-0 cursor-pointer"
+                        title="ยกเลิก"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div 
+                        onClick={() => {
+                          setEditingDisbursementStatusIndex(idx);
+                          setEditingDisbursementStatusText(st);
+                        }}
+                        className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer group py-0.5"
+                        title="คลิกเพื่อแก้ไขชื่อสถานะ"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+                        <span className="truncate group-hover:text-blue-700 transition">{st}</span>
+                        <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition shrink-0 ml-1" />
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingDisbursementStatusIndex(idx);
+                            setEditingDisbursementStatusText(st);
+                          }}
+                          className="p-1 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                          title="แก้ไขชื่อสถานะ"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDisbursementStatus(st)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0 cursor-pointer"
+                          title="ลบสถานะนี้"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+        )}
 
         {/* 3.6 Officer & Staff List Management (รายชื่อเจ้าหน้าที่/นายทหาร) */}
+        {(subTab === 'officers' || subTab === 'all') && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6 lg:col-span-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
@@ -929,7 +1479,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                   type="button"
                   onClick={handleAddBudgetOfficer}
                   disabled={!isAdmin || !newBudgetOfficerInput.trim()}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0"
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>เพิ่ม</span>
@@ -949,13 +1499,20 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                           type="text"
                           value={editingBudgetOfficerText}
                           onChange={(e) => setEditingBudgetOfficerText(e.target.value)}
-                          className="min-w-0 flex-1 px-2.5 py-1 border border-indigo-400 rounded-lg text-xs focus:outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEditBudgetOfficer(idx);
+                            if (e.key === 'Escape') {
+                              setEditingBudgetOfficerIndex(null);
+                              setEditingBudgetOfficerText('');
+                            }
+                          }}
+                          className="min-w-0 flex-1 px-2.5 py-1 border border-indigo-400 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           autoFocus
                         />
                         <button
                           type="button"
                           onClick={() => handleSaveEditBudgetOfficer(idx)}
-                          className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shrink-0"
+                          className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shrink-0 cursor-pointer"
                           title="บันทึก"
                         >
                           <Check className="w-3.5 h-3.5" />
@@ -966,7 +1523,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                             setEditingBudgetOfficerIndex(null);
                             setEditingBudgetOfficerText('');
                           }}
-                          className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md shrink-0"
+                          className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md shrink-0 cursor-pointer"
                           title="ยกเลิก"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -974,30 +1531,38 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                       </div>
                     ) : (
                       <>
-                        <span className="truncate pr-2 font-semibold text-slate-800 flex-1 min-w-0">{officer}</span>
-                        {isAdmin && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingBudgetOfficerIndex(idx);
-                                setEditingBudgetOfficerText(officer);
-                              }}
-                              className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                              title="แก้ไขชื่อ"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteBudgetOfficer(officer)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                              title="ลบรายชื่อ"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
+                        <div 
+                          onClick={() => {
+                            setEditingBudgetOfficerIndex(idx);
+                            setEditingBudgetOfficerText(officer);
+                          }}
+                          className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer group py-0.5"
+                          title="คลิกเพื่อแก้ไขชื่อ"
+                        >
+                          <span className="truncate font-semibold text-slate-800 group-hover:text-indigo-600 transition">{officer}</span>
+                          <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition shrink-0 ml-1" />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingBudgetOfficerIndex(idx);
+                              setEditingBudgetOfficerText(officer);
+                            }}
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                            title="แก้ไขชื่อ"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBudgetOfficer(officer)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="ลบรายชื่อ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
@@ -1029,7 +1594,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                   type="button"
                   onClick={handleAddApprover}
                   disabled={!isAdmin || !newApproverInput.trim()}
-                  className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0"
+                  className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>เพิ่ม</span>
@@ -1049,13 +1614,20 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                           type="text"
                           value={editingApproverText}
                           onChange={(e) => setEditingApproverText(e.target.value)}
-                          className="min-w-0 flex-1 px-2.5 py-1 border border-purple-400 rounded-lg text-xs focus:outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEditApprover(idx);
+                            if (e.key === 'Escape') {
+                              setEditingApproverIndex(null);
+                              setEditingApproverText('');
+                            }
+                          }}
+                          className="min-w-0 flex-1 px-2.5 py-1 border border-purple-400 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
                           autoFocus
                         />
                         <button
                           type="button"
                           onClick={() => handleSaveEditApprover(idx)}
-                          className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shrink-0"
+                          className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shrink-0 cursor-pointer"
                           title="บันทึก"
                         >
                           <Check className="w-3.5 h-3.5" />
@@ -1066,7 +1638,7 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                             setEditingApproverIndex(null);
                             setEditingApproverText('');
                           }}
-                          className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md shrink-0"
+                          className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md shrink-0 cursor-pointer"
                           title="ยกเลิก"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -1074,30 +1646,38 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
                       </div>
                     ) : (
                       <>
-                        <span className="truncate pr-2 font-semibold text-slate-800 flex-1 min-w-0">{approver}</span>
-                        {isAdmin && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingApproverIndex(idx);
-                                setEditingApproverText(approver);
-                              }}
-                              className="p-1 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
-                              title="แก้ไขชื่อ"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteApprover(approver)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                              title="ลบรายชื่อ"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
+                        <div 
+                          onClick={() => {
+                            setEditingApproverIndex(idx);
+                            setEditingApproverText(approver);
+                          }}
+                          className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer group py-0.5"
+                          title="คลิกเพื่อแก้ไขชื่อ"
+                        >
+                          <span className="truncate font-semibold text-slate-800 group-hover:text-purple-600 transition">{approver}</span>
+                          <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition shrink-0 ml-1" />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingApproverIndex(idx);
+                              setEditingApproverText(approver);
+                            }}
+                            className="p-1 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition cursor-pointer"
+                            title="แก้ไขชื่อ"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteApprover(approver)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="ลบรายชื่อ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
@@ -1107,9 +1687,11 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
 
           </div>
         </div>
+        )}
 
         {/* 4. Database & Diagnostics */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+        {(subTab === 'database' || subTab === 'all') && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-purple-100 text-purple-800 rounded-xl">
@@ -1151,56 +1733,10 @@ export const SystemManagement: React.FC<SystemManagementProps> = ({
               <span className="text-white font-bold">v2.5 (มทบ.๔๒)</span>
             </div>
           </div>
-
-          <div className="pt-2 flex flex-col sm:flex-row gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSeedModal(true)}
-              disabled={!isAdmin || isResettingData}
-              className="flex-1 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-amber-600 ${isResettingData ? 'animate-spin' : ''}`} />
-              <span>รีเซ็ต & โหลดข้อมูลตัวอย่างเริ่มต้น</span>
-            </button>
-          </div>
         </div>
+        )}
 
       </div>
-
-      {/* Modal: Confirm Seed Initial Data */}
-      {showSeedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 text-center space-y-4">
-            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
-              <RefreshCw className="w-6 h-6 animate-spin" style={{ animationDuration: '4s' }} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">ยืนยันการโหลดข้อมูลตัวอย่าง</h3>
-              <p className="text-xs text-slate-600 mt-1">
-                คุณต้องการโหลดข้อมูลตัวอย่างเริ่มต้น มทบ.๔๒ กลับเข้าสู่ระบบใช่หรือไม่?
-              </p>
-            </div>
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowSeedModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleSeedData}
-                disabled={isResettingData}
-                className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-md shadow-amber-500/20 font-bold"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isResettingData ? 'animate-spin' : ''}`} />
-                <span>ยืนยันโหลดข้อมูล</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

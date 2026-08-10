@@ -1,10 +1,24 @@
-export type DisbursementStatus = 
-  | 'ยื่นเอกสาร'
-  | 'รอตรวจสอบเอกสาร'
-  | 'อนุมัติ'
-  | 'ส่งคืนเอกสารแก้ไข'
-  | 'โอนเงินแล้ว'
-  | 'ยกเลิก';
+export type DisbursementStatus = string;
+
+export const DEFAULT_DOC_AUDIT_STATUSES: string[] = [
+  'ยื่นเอกสาร',
+  'รอตรวจสอบเอกสาร',
+  'ตรวจสอบเอกสารเรียบร้อย',
+  'ส่งคืนเอกสารแก้ไข',
+  'อนุมัติ',
+  'โอนเงินแล้ว',
+  'ยกเลิก'
+];
+
+export const DEFAULT_DISBURSEMENT_STATUSES: string[] = [
+  'ยื่นเอกสาร',
+  'รอตรวจสอบเอกสาร',
+  'ตรวจสอบเอกสารเรียบร้อย',
+  'อนุมัติ',
+  'ส่งคืนเอกสารแก้ไข',
+  'โอนเงินแล้ว',
+  'ยกเลิก'
+];
 
 export const DEFAULT_BUDGET_CATEGORIES: string[] = [
   'งบบุคลากร (เบี้ยเลี้ยง/ค่าตอบแทน/เดินทาง)',
@@ -39,7 +53,8 @@ export interface DisbursementItem {
   amount: number; // ยอดเงิน e.g. 1000000
   budgetOfficer: string; // ฝ่ายงบประมาณ e.g. หัวหน้างบประมาณ
   approver: string; // ฝ่ายอนุมัติ e.g. นายทหารเบิกจ่าย 1
-  status: DisbursementStatus; // สถานะ
+  docAuditStatus?: string; // สถานะการตรวจสอบเอกสาร
+  status: DisbursementStatus; // สถานะ (สถานะการเบิกจ่าย)
   notes: string; // หมายเหตุ
   returnDate?: string; // วันที่ส่งคืนเอกสารแก้ไข
   transferDate?: string; // วันที่โอนเงิน
@@ -93,6 +108,25 @@ export interface UserProfile {
   lastLoginAt?: string;
 }
 
+export interface LoginHistoryRecord {
+  id: string;
+  uid: string;
+  displayName: string;
+  email: string;
+  rank?: string;
+  department?: string;
+  role: UserRole | string;
+  ip: string;
+  city: string;
+  region: string;
+  country: string;
+  locationName: string;
+  userAgent: string;
+  deviceInfo: string;
+  timestamp: string;
+  status?: 'success' | 'failed';
+}
+
 export interface FeatureFlags {
   viewDashboardUser: boolean;
   viewDashboardAdmin: boolean;
@@ -117,9 +151,9 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   viewDashboardAdmin: true,
   createDisbursementUser: true,
   createDisbursementAdmin: true,
-  editDisbursementUser: false,
+  editDisbursementUser: true,
   editDisbursementAdmin: true,
-  deleteDisbursementUser: false,
+  deleteDisbursementUser: true,
   deleteDisbursementAdmin: true,
   printVoucherUser: true,
   printVoucherAdmin: true,
