@@ -393,6 +393,83 @@ app.post('/api/google/export-sheet', async (req, res) => {
   }
 });
 
+// Upload attachment (PDF / Image) directly to Google Drive folder "เอกสารเบิกจ่าย_มทบ42"
+app.post('/api/google/upload-file', async (req, res) => {
+  try {
+    const tokenCookie = req.cookies?.google_tokens;
+    if (!tokenCookie) {
+      return res.status(401).json({ success: false, error: 'กรุณาเชื่อมต่อ Google Drive ก่อนอัปโหลดไฟล์' });
+    }
+
+    const tokens = JSON.parse(tokenCookie);
+    const oauth2Client = getOAuth2Client(req);
+    oauth2Client.setCredentials(tokens);
+
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
+    const { fileName, mimeType, dataUrl, requestId } = req.body;
+    if (!fileName || !dataUrl) {
+      return res.status(400).json({ success: false, error: 'ข้อมูลไฟล์ไม่ครบถ้วน' });
+    }
+
+    // 1. Find or create folder "เอกสารเบิกจ่าย_มทบ42"
+    const folderName = "เอกสารเบิกจ่าย_มทบ42";
+    let folderId: string | null = null;
+
+    const folderSearch = await drive.files.list({
+      q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`,
+      fields: 'files(id, name)'
+    });
+
+    if (folderSearch.data.files && folderSearch.data.files.length > 0) {
+      folderId = folderSearch.data.files[0].id!;
+    } else {
+      const createdFolder = await drive.files.create({
+        requestBody: {
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder'
+        },
+        fields: 'id'
+      });
+      folderId = createdFolder.data.id!;
+    }
+
+    // 2. Decode base64
+    const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+    const base64Data = matches ? matches[2] : dataUrl.replace(/^data:.*;base64,/, '');
+    const finalMimeType = matches ? matches[1] : (mimeType || 'application/octet-stream');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    const stream = new (await import('stream')).PassThrough();
+    stream.end(buffer);
+
+    // 3. Upload to Google Drive
+    const response = await drive.files.create({
+      requestBody: {
+        name: requestId ? `[${requestId}]_${fileName}` : fileName,
+        parents: folderId ? [folderId] : undefined
+      },
+      media: {
+        mimeType: finalMimeType,
+        body: stream
+      },
+      fields: 'id, name, webViewLink, webContentLink'
+    });
+
+    res.json({
+      success: true,
+      message: 'อัปโหลดไฟล์ไปยัง Google Drive เรียบร้อยแล้ว',
+      fileId: response.data.id,
+      fileName: response.data.name,
+      webViewLink: response.data.webViewLink,
+      webContentLink: response.data.webContentLink
+    });
+  } catch (error: any) {
+    console.error('Upload Google Drive File Error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to upload file to Google Drive' });
+  }
+});
+
 // ==========================================
 // 4. VITE SERVER INTEGRATION
 // ==========================================

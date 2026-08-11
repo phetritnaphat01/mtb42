@@ -349,39 +349,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 )}
               </button>
 
-              {/* Quick Demo Login Box */}
-              <div className="mt-6 pt-5 border-t border-slate-200">
-                <div className="text-center text-xs text-slate-500 font-medium mb-3">
-                  หรือ ทดสอบเข้าสู่ระบบด้วยบัญชีสาธิตแบบด่วน
+              {/* Quick Demo Login Option */}
+              <div className="pt-3 border-t border-slate-200">
+                <div className="text-center text-[11px] font-bold text-slate-500 mb-2">
+                  หรือ ทดสอบเข้าสู่ระบบแบบรวดเร็ว (Demo)
                 </div>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => handleQuickDemoLogin('ADMIN')}
                     disabled={isLoading}
-                    className="p-3 bg-slate-900 hover:bg-slate-800 text-emerald-300 rounded-2xl text-left border border-slate-700 transition flex items-center gap-2 group"
+                    className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 transition shadow-sm h-full"
                   >
-                    <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
-                    <div>
-                      <div className="text-xs font-bold text-white">เข้าสู่ระบบ Admin</div>
-                      <div className="text-[10px] text-slate-400">สิทธิ์ผู้ดูแลระบบ</div>
-                    </div>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="truncate">เข้าสู่ระบบ (Demo Admin)</span>
                   </button>
-
                   <button
                     type="button"
                     onClick={() => handleQuickDemoLogin('USER')}
                     disabled={isLoading}
-                    className="p-3 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-2xl text-left border border-amber-200 transition flex items-center gap-2 group"
+                    className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 flex items-center justify-center gap-1.5 transition shadow-sm h-full"
                   >
-                    <User className="w-5 h-5 text-amber-700 shrink-0 group-hover:scale-110 transition-transform" />
-                    <div>
-                      <div className="text-xs font-bold text-amber-950">เข้าสู่ระบบ User</div>
-                      <div className="text-[10px] text-amber-800">ผู้ใช้ทั่วไป / ผู้ยื่นเบิก</div>
-                    </div>
+                    <User className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="truncate">เข้าสู่ระบบ (Demo User)</span>
                   </button>
                 </div>
               </div>
+
+
             </form>
           )}
 

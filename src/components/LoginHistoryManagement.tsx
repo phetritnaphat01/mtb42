@@ -205,6 +205,27 @@ export const LoginHistoryManagement: React.FC<LoginHistoryManagementProps> = ({
     }
   }
 
+  function formatThaiDateTimeParts(isoStr: string) {
+    if (!isoStr) return { dateStr: '-', timeStr: '' };
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return { dateStr: isoStr, timeStr: '' };
+      const thaiYear = d.getFullYear() + 543;
+      const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+      const day = d.getDate();
+      const month = monthNames[d.getMonth()];
+      const hours = String(d.getHours()).padStart(2, '0');
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      const secs = String(d.getSeconds()).padStart(2, '0');
+      return {
+        dateStr: `${day} ${month} ${thaiYear}`,
+        timeStr: `${hours}:${mins}:${secs} น.`
+      };
+    } catch (e) {
+      return { dateStr: isoStr, timeStr: '' };
+    }
+  }
+
   return (
     <div className="space-y-6 pb-12 animate-fadeIn">
       {/* Header Banner */}
@@ -403,23 +424,24 @@ export const LoginHistoryManagement: React.FC<LoginHistoryManagementProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse table-auto">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-                  <th className="p-4 pl-6">วัน-เวลาเข้าใช้งาน</th>
-                  <th className="p-4">ผู้ใช้งาน / ยศ-ชื่อ</th>
-                  <th className="p-4">สังกัดหน่วยงาน</th>
-                  <th className="p-4">IP Address</th>
-                  <th className="p-4">สถานที่ (GeoIP Location)</th>
-                  <th className="p-4">เบราว์เซอร์ / อุปกรณ์</th>
-                  <th className="p-4 text-center">สถานะ</th>
-                  <th className="p-4 pr-6 text-right">รายละเอียด</th>
+                  <th className="py-3 px-3.5 pl-6 whitespace-nowrap min-w-[150px] w-[16%]">วัน-เวลาเข้าใช้งาน</th>
+                  <th className="py-3 px-3.5 min-w-[190px] w-[21%]">ผู้ใช้งาน / ยศ-ชื่อ</th>
+                  <th className="py-3 px-3.5 whitespace-nowrap min-w-[120px] w-[13%]">สังกัดหน่วยงาน</th>
+                  <th className="py-3 px-3.5 whitespace-nowrap min-w-[130px] w-[14%]">IP Address</th>
+                  <th className="py-3 px-3.5 min-w-[150px] w-[15%]">สถานที่ (GeoIP Location)</th>
+                  <th className="py-3 px-3.5 min-w-[140px] w-[13%]">เบราว์เซอร์ / อุปกรณ์</th>
+                  <th className="py-3 px-3.5 text-center whitespace-nowrap min-w-[65px] w-[4%]">สถานะ</th>
+                  <th className="py-3 px-3.5 pr-6 text-right whitespace-nowrap min-w-[80px] w-[4%]">รายละเอียด</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {filteredLogs.map((item) => {
                   const isDeviceMobile = item.deviceInfo.includes('Mobile') || item.deviceInfo.includes('iPhone') || item.deviceInfo.includes('Android');
-                  
+                  const dt = formatThaiDateTimeParts(item.timestamp);
+
                   return (
                     <tr 
                       key={item.id} 
@@ -427,45 +449,48 @@ export const LoginHistoryManagement: React.FC<LoginHistoryManagementProps> = ({
                       className="hover:bg-amber-50/40 transition cursor-pointer group"
                     >
                       {/* Timestamp */}
-                      <td className="p-4 pl-6 font-semibold text-slate-700 shrink-0">
+                      <td className="py-3 px-3.5 pl-6 font-medium text-slate-700 whitespace-nowrap align-middle">
                         <div className="flex items-center gap-2">
                           <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>{formatThaiDateTime(item.timestamp)}</span>
+                          <div>
+                            <div className="font-bold text-slate-800 text-xs whitespace-nowrap">{dt.dateStr}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{dt.timeStr}</div>
+                          </div>
                         </div>
                       </td>
 
                       {/* User Info */}
-                      <td className="p-4">
+                      <td className="py-3 px-3.5 align-middle">
                         <div className="flex items-center gap-2.5">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                             item.role === 'ADMIN' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-700 border border-slate-200'
                           }`}>
                             {item.displayName.charAt(0) || 'U'}
                           </div>
-                          <div>
-                            <div className="font-bold text-slate-900 group-hover:text-amber-600 transition flex items-center gap-1.5">
-                              <span>{item.rank ? item.rank + ' ' : ''}{item.displayName}</span>
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 group-hover:text-amber-600 transition flex items-center gap-1.5 flex-wrap">
+                              <span className="truncate">{item.rank ? item.rank + ' ' : ''}{item.displayName}</span>
                               {item.role === 'ADMIN' && (
-                                <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.2 rounded border border-amber-200">
+                                <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
                                   ผู้ดูแลระบบ
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] text-slate-400">{item.email}</div>
+                            <div className="text-[10px] text-slate-400 truncate">{item.email}</div>
                           </div>
                         </div>
                       </td>
 
                       {/* Department */}
-                      <td className="p-4">
+                      <td className="py-3 px-3.5 whitespace-nowrap align-middle">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg text-[11px]">
-                          <Building2 className="w-3 h-3 text-slate-400" />
+                          <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
                           <span>{item.department || 'บก.มทบ.42'}</span>
                         </span>
                       </td>
 
                       {/* IP Address */}
-                      <td className="p-4">
+                      <td className="py-3 px-3.5 whitespace-nowrap align-middle">
                         <div className="inline-flex items-center gap-1.5 bg-slate-100/80 hover:bg-slate-200/80 px-2.5 py-1 rounded-lg border border-slate-200 transition font-mono text-[11px] font-bold text-slate-800">
                           <span>{item.ip}</span>
                           <button
@@ -480,16 +505,16 @@ export const LoginHistoryManagement: React.FC<LoginHistoryManagementProps> = ({
                       </td>
 
                       {/* GeoIP Location */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-1.5 text-slate-700 max-w-[220px]">
+                      <td className="py-3 px-3.5 align-middle">
+                        <div className="flex items-center gap-1.5 text-slate-700">
                           <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                          <span className="truncate font-medium" title={item.locationName}>{item.locationName}</span>
+                          <span className="truncate font-medium text-[11px]" title={item.locationName}>{item.locationName}</span>
                         </div>
                       </td>
 
                       {/* Device & Browser */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-1.5 text-slate-700 max-w-[200px]">
+                      <td className="py-3 px-3.5 align-middle">
+                        <div className="flex items-center gap-1.5 text-slate-700">
                           {isDeviceMobile ? (
                             <Smartphone className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                           ) : (
@@ -502,7 +527,7 @@ export const LoginHistoryManagement: React.FC<LoginHistoryManagementProps> = ({
                       </td>
 
                       {/* Status */}
-                      <td className="p-4 text-center">
+                      <td className="py-3 px-3.5 text-center whitespace-nowrap align-middle">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-bold text-[10px]">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                           <span>สำเร็จ</span>
@@ -510,7 +535,7 @@ export const LoginHistoryManagement: React.FC<LoginHistoryManagementProps> = ({
                       </td>
 
                       {/* Actions */}
-                      <td className="p-4 pr-6 text-right shrink-0">
+                      <td className="py-3 px-3.5 pr-6 text-right whitespace-nowrap align-middle">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
@@ -518,7 +543,7 @@ export const LoginHistoryManagement: React.FC<LoginHistoryManagementProps> = ({
                               e.stopPropagation();
                               setSelectedDetailLog(item);
                             }}
-                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-lg transition text-[11px] cursor-pointer"
+                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-lg transition text-[11px] cursor-pointer whitespace-nowrap"
                           >
                             ดูรายละเอียด
                           </button>

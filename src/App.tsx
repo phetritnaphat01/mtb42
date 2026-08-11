@@ -20,6 +20,8 @@ import {
   subscribeToDisbursements, 
   subscribeAppLogo,
   subscribeAppConfig,
+  saveAppConfig,
+  SystemSettingsDoc,
   saveDisbursementDoc, 
   updateDisbursementDoc, 
   deleteDisbursementDoc,
@@ -30,7 +32,7 @@ import {
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('table');
   const [systemSubTab, setSystemSubTab] = useState<string>('logo');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -89,6 +91,7 @@ export default function App() {
   const [approvers, setApprovers] = useState<string[]>(DEFAULT_APPROVERS);
   const [docAuditStatuses, setDocAuditStatuses] = useState<string[]>(DEFAULT_DOC_AUDIT_STATUSES);
   const [disbursementStatuses, setDisbursementStatuses] = useState<string[]>(DEFAULT_DISBURSEMENT_STATUSES);
+  const [systemConfig, setSystemConfig] = useState<SystemSettingsDoc>({});
 
   // Subscribe to Auth State, All Users List, Disbursements & Config
   useEffect(() => {
@@ -117,6 +120,7 @@ export default function App() {
     );
 
     const unsubscribeConfig = subscribeAppConfig((cfg) => {
+      setSystemConfig(cfg);
       if (cfg.categoryList && cfg.categoryList.length > 0) {
         setCategories(cfg.categoryList);
       }
@@ -147,6 +151,15 @@ export default function App() {
       unsubscribeConfig();
     };
   }, []);
+
+  const isUserAdmin = Boolean(isAdmin || currentUserProfile?.role === 'ADMIN');
+
+  // Guard admin tabs for non-admin users
+  useEffect(() => {
+    if (!isUserAdmin && (activeTab === 'system' || activeTab === 'login-history' || activeTab === 'loginHistory' || activeTab === 'permissions')) {
+      setActiveTab('table');
+    }
+  }, [isUserAdmin, activeTab]);
 
   const handleOpenAuthModal = (tab: 'login' | 'register' = 'login') => {
     setAuthModalInitialTab(tab);
@@ -591,6 +604,29 @@ export default function App() {
     }
   };
 
+  // Update Status Options List in Firestore Config
+  const handleUpdateDocAuditStatuses = async (newList: string[]) => {
+    setDocAuditStatuses(newList);
+    try {
+      await saveAppConfig({ ...systemConfig, docAuditStatusList: newList });
+      showToast('บันทึกปรับปรุงหัวข้อสถานะการตรวจสอบเอกสารเรียบร้อย', 'success');
+    } catch (err) {
+      console.error('Save docAuditStatusList error:', err);
+      showToast('ไม่สามารถบันทึกหัวข้อสถานะได้', 'error');
+    }
+  };
+
+  const handleUpdateDisbursementStatuses = async (newList: string[]) => {
+    setDisbursementStatuses(newList);
+    try {
+      await saveAppConfig({ ...systemConfig, statusList: newList });
+      showToast('บันทึกปรับปรุงหัวข้อสถานะการเบิกจ่ายเรียบร้อย', 'success');
+    } catch (err) {
+      console.error('Save statusList error:', err);
+      showToast('ไม่สามารถบันทึกหัวข้อสถานะได้', 'error');
+    }
+  };
+
   // Unique Month Options for Filter
   const monthOptions = [
     { label: 'มกราคม 2569 (01/2569)', value: '01/2569' },
@@ -692,6 +728,7 @@ export default function App() {
               isAdmin={isAdmin || currentUserProfile?.role === 'ADMIN'}
               currentUserProfile={currentUserProfile}
               showToast={showToast}
+              onOpenAdminAuthModal={() => setIsAdminAuthModalOpen(true)}
             />
           ) : activeTab === 'charts' ? (
             <div id="charts">
@@ -703,12 +740,7 @@ export default function App() {
             </div>
           ) : (
             <>
-              {/* 1. Real-Time Metric Cards */}
-              <div id="dashboard">
-                <MetricsCards stats={stats} />
-              </div>
-
-              {/* 2. Complete Disbursement Data Table */}
+              {/* Disbursement Data Table */}
               <div id="table">
                 <DisbursementTable
                   items={filteredItems}
@@ -727,13 +759,15 @@ export default function App() {
                   onPrintVoucher={setPrintingItem}
                   onQuickUpdateStatus={handleQuickStatusUpdate}
                   monthOptions={monthOptions}
-                  isAdmin={isAdmin}
+                  isAdmin={isUserAdmin}
                   onOpenAdminAuthModal={() => setIsAdminAuthModalOpen(true)}
                   onOpenAddModal={handleAttemptAddModal}
                   categoryList={categories}
                   departmentList={departments}
                   docAuditStatusList={docAuditStatuses}
                   statusList={disbursementStatuses}
+                  onUpdateDocAuditStatusList={handleUpdateDocAuditStatuses}
+                  onUpdateDisbursementStatusList={handleUpdateDisbursementStatuses}
                   featureFlags={featureFlags}
                 />
               </div>

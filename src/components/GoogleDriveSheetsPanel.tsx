@@ -47,7 +47,7 @@ export const GoogleDriveSheetsPanel: React.FC<GoogleDriveSheetsPanelProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-300 mt-1">
-              รองรับการส่งออกข้อมูลเป็นไฟล์ Excel (.xlsx), PDF (.pdf) และส่งออกไปยัง Google Sheets
+              รองรับการส่งออกข้อมูลเป็นไฟล์ Excel (.xlsx), PDF (.pdf), Google Sheets และ<strong className="text-emerald-300"> บันทึกไฟล์แนบ (PDF/JPG/PNG) ทั้งหมดไปยังโฟลเดอร์ Google Drive "เอกสารเบิกจ่าย_มทบ42"</strong> โดยอัตโนมัติ
             </p>
           </div>
         </div>

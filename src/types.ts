@@ -43,6 +43,17 @@ export const DEFAULT_APPROVERS: string[] = [
 
 export type BudgetCategory = string;
 
+export interface AttachedFile {
+  id: string;
+  name: string;
+  type: string; // 'application/pdf', 'image/jpeg', 'image/png', etc.
+  size: number; // in bytes
+  dataUrl: string; // base64 data string
+  uploadedAt: string;
+  driveFileId?: string;
+  driveWebViewLink?: string;
+}
+
 export interface DisbursementItem {
   id: string; // เลขที่คำขอ e.g. TH001
   department: string; // หน่วยตั้งเบิก e.g. บก.มทบ.42, กรม ทพ.42, ทน.4, ฝคง
@@ -58,6 +69,10 @@ export interface DisbursementItem {
   notes: string; // หมายเหตุ
   returnDate?: string; // วันที่ส่งคืนเอกสารแก้ไข
   transferDate?: string; // วันที่โอนเงิน
+  attachments?: AttachedFile[]; // ไฟล์แนบ PDF/JPG/PNG
+  createdByUid?: string; // UID ของผู้สร้างรายการ
+  createdByEmail?: string; // อีเมลของผู้สร้างรายการ
+  createdByName?: string; // ชื่อของผู้สร้างรายการ
 }
 
 export interface MonthlySummary {

@@ -167,6 +167,19 @@ export const PrintVoucherModal: React.FC<PrintVoucherModalProps> = ({
             </div>
           )}
 
+          {item.attachments && item.attachments.length > 0 && (
+            <div className="border border-blue-200 bg-blue-50/50 p-3 rounded text-xs font-sans text-slate-800">
+              <span className="font-bold text-blue-900">เอกสาร/ไฟล์แนบประกอบ ({item.attachments.length} รายการ):</span>
+              <ul className="mt-1 list-disc list-inside space-y-0.5 text-slate-700">
+                {item.attachments.map(att => (
+                  <li key={att.id} className="font-medium">
+                    {att.name} <span className="text-slate-400 text-[10px]">({Math.round(att.size / 1024)} KB)</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Signature Blocks */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 text-center text-xs font-sans pt-8 border-t border-slate-300">
             <div className="space-y-6 sm:space-y-8">

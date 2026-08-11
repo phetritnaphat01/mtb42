@@ -3,12 +3,14 @@ import {
   DisbursementItem, 
   BudgetCategory, 
   DisbursementStatus, 
+  UserProfile,
   DEFAULT_BUDGET_CATEGORIES, 
   DEFAULT_BUDGET_OFFICERS, 
   DEFAULT_APPROVERS,
   DEFAULT_DOC_AUDIT_STATUSES,
   DEFAULT_DISBURSEMENT_STATUSES
 } from '../types';
+import { FileAttachmentSection } from './FileAttachmentSection';
 import { X, Plus, Building2, Calendar, FileText, DollarSign, UserCheck, Shield } from 'lucide-react';
 
 interface AddRequestModalProps {
@@ -21,6 +23,7 @@ interface AddRequestModalProps {
   approvers?: string[];
   docAuditStatusList?: string[];
   statusList?: string[];
+  currentUserProfile?: UserProfile | null;
 }
 
 export const AddRequestModal: React.FC<AddRequestModalProps> = ({
@@ -32,7 +35,8 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
   budgetOfficers,
   approvers,
   docAuditStatusList = [],
-  statusList = []
+  statusList = [],
+  currentUserProfile
 }) => {
   const categoryOptions = categories && categories.length > 0 ? categories : DEFAULT_BUDGET_CATEGORIES;
   const deptOptions = departmentList && departmentList.length > 0 ? departmentList : [
@@ -63,7 +67,8 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
     status: statusOptions[0] || 'ยื่นเอกสาร',
     notes: '',
     returnDate: '',
-    transferDate: ''
+    transferDate: '',
+    attachments: []
   });
 
   const [formData, setFormData] = useState<Partial<DisbursementItem>>(getInitialFormData);
@@ -97,226 +102,241 @@ export const AddRequestModal: React.FC<AddRequestModalProps> = ({
       status: (formData.status as DisbursementStatus) || statusOptions[0] || 'ยื่นเอกสาร',
       notes: formData.notes || '',
       returnDate: '',
-      transferDate: ''
+      transferDate: '',
+      attachments: formData.attachments || []
     });
 
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl my-8 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[88vh] flex flex-col my-auto overflow-hidden">
         
         {/* Modal Header */}
-        <div className="bg-slate-900 text-white p-4 px-6 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center space-x-2">
-            <Plus className="w-5 h-5 text-amber-400" />
-            <h3 className="font-bold text-lg">บันทึกตั้งเบิกงบประมาณใหม่</h3>
+        <div className="bg-slate-900 text-white py-3.5 px-5 sm:px-6 flex items-center justify-between border-b border-slate-800 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-amber-500/10 rounded-lg border border-amber-500/20">
+              <Plus className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base sm:text-lg leading-tight text-white">บันทึกตั้งเบิกงบประมาณใหม่</h3>
+              <p className="text-[11px] text-slate-400">กรอกข้อมูลการตั้งเบิกงบประมาณให้ครบถ้วนก่อนบันทึก</p>
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Form Container */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Scrollable Form Body */}
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-slate-800">
             
-            {/* หน่วยตั้งเบิก */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                หน่วยตั้งเบิก *
-              </label>
-              <select
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                {deptOptions.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+              
+              {/* หน่วยตั้งเบิก */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  หน่วยตั้งเบิก <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                >
+                  {deptOptions.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* วันที่ตั้งเบิก */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  วันที่ตั้งเบิก (วัน/เดือน/ปี พ.ศ.) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น 11/8/2569"
+                  value={formData.requestDate}
+                  onChange={(e) => setFormData({ ...formData, requestDate: e.target.value })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                  required
+                />
+              </div>
+
+              {/* หลักฐานฎีกา */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  หลักฐานฎีกา <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น 23/69 หรือ 176"
+                  value={formData.docNumber}
+                  onChange={(e) => setFormData({ ...formData, docNumber: e.target.value })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                  required
+                />
+              </div>
+
+              {/* ยอดเงิน */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  ยอดเงิน (บาท) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="เช่น 1000000"
+                  value={formData.amount || ''}
+                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                  required
+                />
+              </div>
+
+              {/* สถานะการตรวจสอบเอกสาร */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  สถานะการตรวจสอบเอกสาร <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formData.docAuditStatus || docAuditStatusOptions[0] || 'ยื่นเอกสาร'}
+                  onChange={(e) => setFormData({ ...formData, docAuditStatus: e.target.value })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                >
+                  {docAuditStatusOptions.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* สถานะการเบิกจ่าย */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  สถานะการเบิกจ่าย <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formData.status || statusOptions[0] || 'ยื่นเอกสาร'}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as DisbursementStatus })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                >
+                  {statusOptions.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* รายการเบิกจ่าย */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  รายการเบิกจ่าย / รายละเอียด <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น ค่าเบี้ยเลี้ยงเดินทางไปราชการ, ค่าวัสดุสำนักงาน"
+                  value={formData.item}
+                  onChange={(e) => setFormData({ ...formData, item: e.target.value })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                  required
+                />
+              </div>
+
+              {/* ประเภทรายการงบประมาณ */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  ประเภทรายการงบประมาณ <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value as BudgetCategory })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                >
+                  {categoryOptions.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ฝ่ายงบประมาณ */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  ฝ่ายงบประมาณ (ผู้ตรวจ)
+                </label>
+                <select
+                  value={formData.budgetOfficer || ''}
+                  onChange={(e) => setFormData({ ...formData, budgetOfficer: e.target.value })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                >
+                  {budgetOfficerOptions.map((off) => (
+                    <option key={off} value={off}>{off}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ฝ่ายอนุมัติ */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  ฝ่ายอนุมัติ (นายทหารเบิกจ่าย)
+                </label>
+                <select
+                  value={formData.approver || ''}
+                  onChange={(e) => setFormData({ ...formData, approver: e.target.value })}
+                  className="w-full h-10 px-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+                >
+                  {approverOptions.map((app) => (
+                    <option key={app} value={app}>{app}</option>
+                  ))}
+                </select>
+              </div>
+
             </div>
 
-            {/* วันที่ตั้งเบิก */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                วันที่ตั้งเบิก (วัน/เดือน/ปี พ.ศ.) *
-              </label>
-              <input
-                type="text"
-                placeholder="เช่น 6/2/2569"
-                value={formData.requestDate}
-                onChange={(e) => setFormData({ ...formData, requestDate: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            {/* หลักฐานฎีกา */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                หลักฐานฎีกา *
-              </label>
-              <input
-                type="text"
-                placeholder="เช่น 23/69 หรือ 176"
-                value={formData.docNumber}
-                onChange={(e) => setFormData({ ...formData, docNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            {/* ยอดเงิน */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ยอดเงิน (บาท) *
-              </label>
-              <input
-                type="number"
-                step="any"
-                placeholder="เช่น 1000000"
-                value={formData.amount || ''}
-                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            {/* สถานะการตรวจสอบเอกสาร */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                สถานะการตรวจสอบเอกสาร *
-              </label>
-              <select
-                value={formData.docAuditStatus || docAuditStatusOptions[0] || 'ยื่นเอกสาร'}
-                onChange={(e) => setFormData({ ...formData, docAuditStatus: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                {docAuditStatusOptions.map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* สถานะการเบิกจ่าย */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                สถานะการเบิกจ่าย *
-              </label>
-              <select
-                value={formData.status || statusOptions[0] || 'ยื่นเอกสาร'}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as DisbursementStatus })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                {statusOptions.map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
-            </div>
-
-          </div>
-
-          {/* รายการ */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              รายการเบิกจ่าย / รายละเอียด *
-            </label>
-            <input
-              type="text"
-              placeholder="เช่น ค่าเบี้ยเลี้ยงเดินทางไปราชการ, ค่าวัสดุสำนักงาน"
-              value={formData.item}
-              onChange={(e) => setFormData({ ...formData, item: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              required
+            {/* แนบไฟล์ PDF / รูปภาพ */}
+            <FileAttachmentSection
+              files={formData.attachments || []}
+              onChange={(newFiles) => setFormData({ ...formData, attachments: newFiles })}
             />
-          </div>
 
-          {/* ประเภทรายการงบประมาณ */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              ประเภทรายการงบประมาณ *
-            </label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value as BudgetCategory })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            >
-              {categoryOptions.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* ฝ่ายงบประมาณ */}
+            {/* หมายเหตุ */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ฝ่ายงบประมาณ (ผู้ตรวจ)
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                หมายเหตุ / รายละเอียดเพิ่มเติม
               </label>
-              <select
-                value={formData.budgetOfficer || ''}
-                onChange={(e) => setFormData({ ...formData, budgetOfficer: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                {budgetOfficerOptions.map((off) => (
-                  <option key={off} value={off}>{off}</option>
-                ))}
-              </select>
+              <textarea
+                rows={2}
+                placeholder="ระบุข้อความ เช่น เอกสารขาดใบเสนอราคา หรือ ข้อมูลประกอบเพิ่มเติม..."
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full p-3 bg-slate-50/50 hover:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs resize-y"
+              />
             </div>
 
-            {/* ฝ่ายอนุมัติ */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ฝ่ายอนุมัติ (นายทหารเบิกจ่าย)
-              </label>
-              <select
-                value={formData.approver || ''}
-                onChange={(e) => setFormData({ ...formData, approver: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              >
-                {approverOptions.map((app) => (
-                  <option key={app} value={app}>{app}</option>
-                ))}
-              </select>
-            </div>
           </div>
 
-
-
-          {/* หมายเหตุ */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              หมายเหตุ / รายละเอียดเพิ่มเติม
-            </label>
-            <textarea
-              rows={2}
-              placeholder="ระบุข้อความ เช่น เอกสารขาดใบเสนอราคา หรือ ข้อมูลประกอบเพิ่มเติม..."
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800"
-            />
-          </div>
-
-          {/* Submit Actions */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
+          {/* Modal Footer (Fixed at bottom) */}
+          <div className="bg-slate-50 py-3.5 px-6 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-100 transition"
+              className="h-10 px-5 border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold transition cursor-pointer"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold shadow transition"
+              className="h-10 px-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-500/20 transition cursor-pointer flex items-center gap-2"
             >
-              บันทึกข้อมูลคำขอ
+              <Plus className="w-4 h-4" />
+              <span>บันทึกข้อมูลคำขอ</span>
             </button>
           </div>
 

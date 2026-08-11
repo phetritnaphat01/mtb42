@@ -38,12 +38,14 @@ interface PermissionsManagementProps {
   isAdmin: boolean;
   currentUserProfile: UserProfile | null;
   showToast: (msg: string, type?: 'success' | 'error') => void;
+  onOpenAdminAuthModal?: () => void;
 }
 
 export const PermissionsManagement: React.FC<PermissionsManagementProps> = ({
   isAdmin,
   currentUserProfile,
-  showToast
+  showToast,
+  onOpenAdminAuthModal
 }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,18 +113,25 @@ export const PermissionsManagement: React.FC<PermissionsManagementProps> = ({
 
   const handleToggleFlag = async (key: keyof FeatureFlags) => {
     if (!isEffectiveAdmin) {
-      showToast('เฉพาะผู้ดูแลระบบ (ADMIN) เท่านั้นที่สามารถปรับเปลี่ยนสิทธิ์ฟังก์ชั่นได้', 'error');
+      if (onOpenAdminAuthModal) {
+        showToast('กรุณาป้อน PIN ผู้ดูแลระบบเพื่อปลดล็อกการปรับสิทธิ์', 'error');
+        onOpenAdminAuthModal();
+      } else {
+        showToast('เฉพาะผู้ดูแลระบบ (ADMIN) เท่านั้นที่สามารถปรับเปลี่ยนสิทธิ์ฟังก์ชั่นได้', 'error');
+      }
       return;
     }
+    const nextVal = !featureFlags[key];
     const updated = {
       ...featureFlags,
-      [key]: !featureFlags[key]
+      [key]: nextVal
     };
+    // Instant optimistic update
     setFeatureFlags(updated);
     try {
       setIsSavingFlags(true);
       await saveAppConfig({ featureFlags: updated });
-      showToast(`อัปเดตการตั้งค่าเปิด/ปิดฟังก์ชั่นเรียบร้อยแล้ว`, 'success');
+      showToast(`อัปเดตการตั้งค่า ${nextVal ? 'เปิด' : 'ปิด'}ใช้งานเรียบร้อยแล้ว`, 'success');
     } catch (err) {
       console.error('Failed to update feature flags:', err);
       showToast('เกิดข้อผิดพลาดในการบันทึกการตั้งค่าสิทธิ์', 'error');
@@ -624,68 +633,56 @@ export const PermissionsManagement: React.FC<PermissionsManagementProps> = ({
 
                     {/* USER Role Toggle Cell */}
                     <td className="p-3 text-center">
-                      {isEffectiveAdmin ? (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleFlag(row.userKey)}
-                          disabled={isSavingFlags}
-                          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition shadow-xs cursor-pointer ${
-                            userVal
-                              ? 'bg-emerald-500 text-white hover:bg-emerald-600 ring-2 ring-emerald-200'
-                              : 'bg-rose-500 text-white hover:bg-rose-600 ring-2 ring-rose-200'
-                          }`}
-                          title={`คลิกเพื่อ ${userVal ? 'ปิด' : 'เปิด'} ฟังก์ชั่นนี้สำหรับ USER`}
-                        >
-                          {userVal ? (
-                            <>
-                              <Check className="w-4 h-4 stroke-[3]" />
-                              <span>เปิดใช้งาน</span>
-                            </>
-                          ) : (
-                            <>
-                              <X className="w-4 h-4 stroke-[3]" />
-                              <span>ปิดใช้งาน</span>
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <span className={`inline-flex items-center gap-1 font-bold ${userVal ? 'text-emerald-600' : 'text-rose-500'}`}>
-                          {userVal ? <Check className="w-5 h-5 mx-auto" /> : <X className="w-5 h-5 mx-auto" />}
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFlag(row.userKey)}
+                        disabled={isSavingFlags}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition shadow-xs cursor-pointer hover:scale-105 active:scale-95 ${
+                          userVal
+                            ? 'bg-emerald-500 text-white hover:bg-emerald-600 ring-2 ring-emerald-200'
+                            : 'bg-rose-500 text-white hover:bg-rose-600 ring-2 ring-rose-200'
+                        }`}
+                        title={isEffectiveAdmin ? `คลิกเพื่อ ${userVal ? 'ปิด' : 'เปิด'} ฟังก์ชั่นนี้สำหรับ USER` : 'ต้องใช้สิทธิ์ Admin ในการเปลี่ยนสิทธิ์ (คลิกเพื่อปลดล็อก)'}
+                      >
+                        {userVal ? (
+                          <>
+                            <Check className="w-4 h-4 stroke-[3]" />
+                            <span>เปิดใช้งาน</span>
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-4 h-4 stroke-[3]" />
+                            <span>ปิดใช้งาน</span>
+                          </>
+                        )}
+                      </button>
                     </td>
 
                     {/* ADMIN Role Toggle Cell */}
                     <td className="p-3 text-center">
-                      {isEffectiveAdmin ? (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleFlag(row.adminKey)}
-                          disabled={isSavingFlags}
-                          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition shadow-xs cursor-pointer ${
-                            adminVal
-                              ? 'bg-emerald-500 text-white hover:bg-emerald-600 ring-2 ring-emerald-200'
-                              : 'bg-rose-500 text-white hover:bg-rose-600 ring-2 ring-rose-200'
-                          }`}
-                          title={`คลิกเพื่อ ${adminVal ? 'ปิด' : 'เปิด'} ฟังก์ชั่นนี้สำหรับ ADMIN`}
-                        >
-                          {adminVal ? (
-                            <>
-                              <Check className="w-4 h-4 stroke-[3]" />
-                              <span>เปิดใช้งาน</span>
-                            </>
-                          ) : (
-                            <>
-                              <X className="w-4 h-4 stroke-[3]" />
-                              <span>ปิดใช้งาน</span>
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <span className={`inline-flex items-center gap-1 font-bold ${adminVal ? 'text-emerald-600' : 'text-rose-500'}`}>
-                          {adminVal ? <Check className="w-5 h-5 mx-auto" /> : <X className="w-5 h-5 mx-auto" />}
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFlag(row.adminKey)}
+                        disabled={isSavingFlags}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition shadow-xs cursor-pointer hover:scale-105 active:scale-95 ${
+                          adminVal
+                            ? 'bg-emerald-500 text-white hover:bg-emerald-600 ring-2 ring-emerald-200'
+                            : 'bg-rose-500 text-white hover:bg-rose-600 ring-2 ring-rose-200'
+                        }`}
+                        title={isEffectiveAdmin ? `คลิกเพื่อ ${adminVal ? 'ปิด' : 'เปิด'} ฟังก์ชั่นนี้สำหรับ ADMIN` : 'ต้องใช้สิทธิ์ Admin ในการเปลี่ยนสิทธิ์ (คลิกเพื่อปลดล็อก)'}
+                      >
+                        {adminVal ? (
+                          <>
+                            <Check className="w-4 h-4 stroke-[3]" />
+                            <span>เปิดใช้งาน</span>
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-4 h-4 stroke-[3]" />
+                            <span>ปิดใช้งาน</span>
+                          </>
+                        )}
+                      </button>
                     </td>
                   </tr>
                 );
