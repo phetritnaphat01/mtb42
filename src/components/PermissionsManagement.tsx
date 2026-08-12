@@ -244,13 +244,17 @@ export const PermissionsManagement: React.FC<PermissionsManagementProps> = ({
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetPassUser) return;
-    if (!newPasswordInput || newPasswordInput.length < 4) {
+    const cleanPass = newPasswordInput.trim();
+    if (!cleanPass || cleanPass.length < 4) {
       showToast('รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร', 'error');
       return;
     }
     setIsResettingPass(true);
     try {
-      await adminUpdateUserPassword(resetPassUser.uid, newPasswordInput.trim());
+      await adminUpdateUserPassword(resetPassUser.uid, cleanPass);
+      let encoded = cleanPass;
+      try { encoded = btoa(cleanPass); } catch {}
+      setUsers(prev => prev.map(u => u.uid === resetPassUser.uid ? { ...u, passSecret: encoded } : u));
       showToast(`เปลี่ยนรหัสผ่านสำหรับ "${resetPassUser.displayName}" สำเร็จแล้ว!`, 'success');
       setResetPassUser(null);
       setNewPasswordInput('');

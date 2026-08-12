@@ -647,10 +647,10 @@ export const updateUserRoleAndInfo = async (
 ) => {
   try {
     const userRef = doc(db, USERS_COLLECTION, uid);
-    await setDoc(userRef, {
+    await withTimeout(setDoc(userRef, {
       ...updates,
       updatedAt: new Date().toISOString()
-    }, { merge: true }).catch((e) => console.warn('updateUserRoleAndInfo notice:', e));
+    }, { merge: true }), 2000).catch((e) => console.warn('updateUserRoleAndInfo notice:', e));
   } catch (e) {}
 
   // Update LocalStorage registry
@@ -676,7 +676,7 @@ export const updateUserRoleAndInfo = async (
 export const deleteUserDoc = async (uid: string) => {
   try {
     const userRef = doc(db, USERS_COLLECTION, uid);
-    await deleteDoc(userRef).catch((e) => console.warn('deleteUserDoc notice:', e));
+    await withTimeout(deleteDoc(userRef), 2000).catch((e) => console.warn('deleteUserDoc notice:', e));
   } catch (e) {}
 
   // Update LocalStorage registry
@@ -696,10 +696,10 @@ export const adminUpdateUserPassword = async (uid: string, newPassword: string) 
 
   try {
     const userRef = doc(db, USERS_COLLECTION, uid);
-    await setDoc(userRef, {
+    await withTimeout(setDoc(userRef, {
       passSecret: encodedPass,
       updatedAt: new Date().toISOString()
-    }, { merge: true }).catch((e) => console.warn('adminUpdateUserPassword notice:', e));
+    }, { merge: true }), 2000).catch((e) => console.warn('adminUpdateUserPassword notice:', e));
   } catch (e) {}
 
   // Update LocalStorage registry & cached user
